@@ -18,6 +18,11 @@ const INCOME_CATEGORIES = [
 
 const ALL_CATEGORIES = [...CATEGORIES, ...INCOME_CATEGORIES];
 
+const CHART_COLORS = [
+  "#C8A96E", "#1A1A2E", "#4A6FA5", "#E8A87C",
+  "#6B8F71", "#D4A5A5", "#9B8EA8", "#7FADA0",
+];
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { couple, transactions, goals } = useDuetto();
@@ -25,39 +30,47 @@ const Dashboard = () => {
 
   const now = new Date();
 
-  const monthExpenses = useMemo(
-    () =>
-      transactions
-        .filter((t) => {
-          const d = new Date(t.date);
-          return (
-            t.type === "expense" &&
-            d.getMonth() === now.getMonth() &&
-            d.getFullYear() === now.getFullYear()
-          );
-        })
-        .reduce((s, t) => s + t.amount, 0),
+  const monthTransactions = useMemo(
+    () => transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }),
     [transactions],
   );
 
+  const monthExpenses = useMemo(
+    () => monthTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+    [monthTransactions],
+  );
+
   const monthIncome = useMemo(
-    () =>
-      transactions
-        .filter((t) => {
-          const d = new Date(t.date);
-          return (
-            t.type === "income" &&
-            d.getMonth() === now.getMonth() &&
-            d.getFullYear() === now.getFullYear()
-          );
-        })
-        .reduce((s, t) => s + t.amount, 0),
-    [transactions],
+    () => monthTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
+    [monthTransactions],
   );
 
   const balance = monthIncome - monthExpenses;
   const primaryGoal = goals[0];
   const recent = transactions.slice(0, 5);
+
+  // Despesas agrupadas por categoria para o gráfico
+  const categoryData = useMemo(() => {
+    const expensesByCategory: Record<string, number> = {};
+    monthTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
+      });
+
+    return Object.entries(expensesByCategory)
+      .map(([id, amount]) => ({
+        id,
+        label: ALL_CATEGORIES.find((c) => c.id === id)?.label || id,
+        emoji: ALL_CATEGORIES.find((c) => c.id === id)?.emoji || "📦",
+        amount,
+        pct: monthExpenses > 0 ? (amount / monthExpenses) * 100 : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [monthTransactions, monthExpenses]);
 
   return (
     <AppShell>
@@ -71,6 +84,7 @@ const Dashboard = () => {
         </h1>
       </header>
 
+      {/* Card saldo */}
       <section className="px-6">
         <div className="relative overflow-hidden rounded-3xl bg-primary px-6 py-7 text-primary-foreground shadow-soft">
           <div
@@ -96,6 +110,52 @@ const Dashboard = () => {
         </div>
       </section>
 
+      {/* Gráfico por categoria */}
+      {categoryData.length > 0 && (
+        <section className="px-6 pt-6">
+          <div className="rounded-3xl bg-card p-5 shadow-soft">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-4">
+              Despesas por categoria
+            </p>
+
+            {/* Barra empilhada */}
+            <div className="flex h-3 w-full overflow-hidden rounded-full">
+              {categoryData.map((c, i) => (
+                <div
+                  key={c.id}
+                  style={{
+                    width: `${c.pct}%`,
+                    backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Legenda */}
+            <ul className="mt-4 space-y-2">
+              {categoryData.map((c, i) => (
+                <li key={c.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                    />
+                    <span className="text-[13px] text-foreground">
+                      {c.emoji} {c.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-muted-foreground">{Math.round(c.pct)}%</span>
+                    <span className="text-[13px] font-medium text-foreground">{formatEUR(c.amount)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {/* Meta principal */}
       {primaryGoal && (
         <section className="px-6 pt-6">
           <Link
@@ -123,6 +183,7 @@ const Dashboard = () => {
         </section>
       )}
 
+      {/* Últimas transações */}
       <section className="px-6 pt-7 pb-32">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-[20px] text-foreground">Últimas transações</h2>
@@ -160,6 +221,7 @@ const Dashboard = () => {
         </ul>
       </section>
 
+      {/* Botão + */}
       <button
         onClick={() => setShowTypeModal(true)}
         aria-label="Adicionar transação"
@@ -169,6 +231,7 @@ const Dashboard = () => {
         <Plus size={26} strokeWidth={2.2} className="relative z-10" />
       </button>
 
+      {/* Modal despesa/receita */}
       {showTypeModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
