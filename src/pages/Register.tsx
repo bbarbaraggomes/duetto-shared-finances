@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Mail, Check } from "lucide-react";
@@ -91,13 +91,15 @@ const Register = () => {
     setStep("waiting");
   };
 
-  // Login com Google para aceitar convite
   const handleGoogleJoin = async () => {
     setGoogleLoading(true);
+    if (inviteId) {
+      localStorage.setItem("duetto_join_couple", inviteId);
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?join=${inviteId}`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (error) {

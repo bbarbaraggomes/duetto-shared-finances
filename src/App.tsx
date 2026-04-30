@@ -25,21 +25,21 @@ const AuthCallback = () => {
   useEffect(() => {
     const hash = window.location.hash;
     console.log("AuthCallback hash:", hash.substring(0, 50));
-    console.log("AuthCallback joinCoupleId:", joinCoupleId);
 
     const processJoin = async (userId: string) => {
-      if (!joinCoupleId) return;
+      const joinId = joinCoupleId || localStorage.getItem("duetto_join_couple");
+      if (!joinId) return;
 
-      // Ligar o utilizador ao casal existente
       const { error } = await supabase
         .from("couples")
         .update({ user2_id: userId, status: "active" })
-        .eq("id", joinCoupleId);
+        .eq("id", joinId);
 
       if (error) {
         console.error("Erro ao ligar ao casal:", error);
       } else {
-        console.log("✅ Parceiro ligado ao casal:", joinCoupleId);
+        console.log("✅ Parceiro ligado ao casal:", joinId);
+        localStorage.removeItem("duetto_join_couple");
       }
     };
 

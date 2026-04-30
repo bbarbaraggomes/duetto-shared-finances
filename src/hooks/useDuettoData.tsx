@@ -104,7 +104,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
     const myEmail = email || "";
 
-    // Buscar casal — primeiro como user1, depois como user2
     let coupleData = null;
     const { data: c1 } = await supabase
       .from("couples")
@@ -133,7 +132,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       const partnerId = coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
       let partnerName = "";
       let partnerEmail = "";
-      let partnerPending = true;
+      let partnerPending = !partnerId;
 
       if (partnerId) {
         const { data: partnerProfile } = await supabase
