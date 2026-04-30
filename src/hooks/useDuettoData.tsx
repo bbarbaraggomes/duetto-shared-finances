@@ -52,6 +52,7 @@ interface Ctx {
   setTransactions: (t: Transaction[]) => void;
   addTransaction: (t: Omit<Transaction, "id">) => void;
   goals: Goal[];
+  setGoals: (g: Goal[]) => void;
   addGoal: (g: Omit<Goal, "id" | "current">) => void;
   loading: boolean;
   userId: string | null;
@@ -162,7 +163,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         setGoals(goalsData.map((g) => ({
           id: g.id,
           name: g.name,
-          emoji: "🎯",
+          emoji: g.emoji || "🎯",
           target: Number(g.target_amount),
           current: Number(g.current_amount),
           deadline: g.deadline || "",
@@ -250,6 +251,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       id: newGoal.id,
       couple_id: cId,
       name: g.name,
+      emoji: g.emoji,
       target_amount: g.target,
       deadline: g.deadline,
     });
@@ -257,7 +259,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value = useMemo<Ctx>(
-    () => ({ couple, setCouple, transactions, setTransactions, addTransaction, goals, addGoal, loading, userId }),
+    () => ({ couple, setCouple, transactions, setTransactions, addTransaction, goals, setGoals, addGoal, loading, userId }),
     [couple, transactions, goals, loading, userId, coupleId]
   );
 
