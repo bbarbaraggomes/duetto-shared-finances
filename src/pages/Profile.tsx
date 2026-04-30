@@ -6,7 +6,7 @@ import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
 
-const SUPABASE_URL = "https://maskbsseptaihntezvcm.supabase.co";
+const res = await fetch(`${SUPABASE_URL}/functions/v1/quick-handler`, {
 
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
