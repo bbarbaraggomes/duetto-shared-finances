@@ -1,26 +1,61 @@
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, X } from "lucide-react";
 import { AppShell } from "@/components/duetto/AppShell";
 import { ProgressBar } from "@/components/duetto/ProgressBar";
 import { CATEGORIES, formatEUR, useDuetto } from "@/hooks/useDuettoData";
 
+const INCOME_CATEGORIES = [
+  { id: "trabalho", label: "Trabalho", emoji: "💼" },
+  { id: "renda", label: "Renda", emoji: "🏠" },
+  { id: "freelance", label: "Freelance", emoji: "💻" },
+  { id: "investimento", label: "Investimento", emoji: "📈" },
+  { id: "presente", label: "Presente", emoji: "🎁" },
+  { id: "reembolso", label: "Reembolso", emoji: "↩️" },
+  { id: "bonus", label: "Bónus", emoji: "⭐" },
+  { id: "outro", label: "Outro", emoji: "📦" },
+];
+
+const ALL_CATEGORIES = [...CATEGORIES, ...INCOME_CATEGORIES];
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { couple, transactions, goals } = useDuetto();
+  const [showTypeModal, setShowTypeModal] = useState(false);
 
   const now = new Date();
+
   const monthExpenses = useMemo(
     () =>
       transactions
         .filter((t) => {
           const d = new Date(t.date);
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          return (
+            t.type === "expense" &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear()
+          );
         })
         .reduce((s, t) => s + t.amount, 0),
     [transactions],
   );
 
-  const balance = couple.monthIncome - monthExpenses;
+  const monthIncome = useMemo(
+    () =>
+      transactions
+        .filter((t) => {
+          const d = new Date(t.date);
+          return (
+            t.type === "income" &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear()
+          );
+        })
+        .reduce((s, t) => s + t.amount, 0),
+    [transactions],
+  );
+
+  const balance = monthIncome - monthExpenses;
   const primaryGoal = goals[0];
   const recent = transactions.slice(0, 5);
 
@@ -50,7 +85,7 @@ const Dashboard = () => {
           <div className="mt-5 flex items-center gap-6 text-[13px]">
             <div>
               <p className="text-primary-foreground/60">Receitas</p>
-              <p className="mt-0.5 font-medium">{formatEUR(couple.monthIncome)}</p>
+              <p className="mt-0.5 font-medium">{formatEUR(monthIncome)}</p>
             </div>
             <div className="h-8 w-px bg-primary-foreground/20" />
             <div>
@@ -88,7 +123,7 @@ const Dashboard = () => {
         </section>
       )}
 
-      <section className="px-6 pt-7">
+      <section className="px-6 pt-7 pb-32">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-[20px] text-foreground">Últimas transações</h2>
           <Link to="/expenses" className="text-[13px] text-accent">Ver tudo</Link>
@@ -96,12 +131,13 @@ const Dashboard = () => {
         <ul className="mt-4 space-y-2">
           {recent.length === 0 && (
             <li className="py-8 text-center text-[14px] text-muted-foreground">
-              Ainda não há despesas este mês.
+              Ainda não há transações este mês.
             </li>
           )}
           {recent.map((t) => {
-            const cat = CATEGORIES.find((c) => c.id === t.category) ?? CATEGORIES[CATEGORIES.length - 1];
+            const cat = ALL_CATEGORIES.find((c) => c.id === t.category) ?? CATEGORIES[CATEGORIES.length - 1];
             const who = t.paidBy === "me" ? couple.me.name : couple.partner.name;
+            const isIncome = t.type === "income";
             return (
               <li key={t.id} className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background-soft text-xl">
@@ -112,11 +148,11 @@ const Dashboard = () => {
                     {t.note || cat.label}
                   </p>
                   <p className="text-[12px] text-muted-foreground">
-                    {cat.label} · Pago por {who}
+                    {cat.label} · {isIncome ? "Recebido por" : "Pago por"} {who}
                   </p>
                 </div>
-                <p className="text-[15px] font-semibold text-foreground">
-                  -{formatEUR(t.amount)}
+                <p className={`text-[15px] font-semibold ${isIncome ? "text-green-600" : "text-foreground"}`}>
+                  {isIncome ? "+" : "-"}{formatEUR(t.amount)}
                 </p>
               </li>
             );
@@ -124,14 +160,54 @@ const Dashboard = () => {
         </ul>
       </section>
 
-      <Link
-        to="/add-expense"
-        aria-label="Adicionar despesa"
+      {/* Botão + flutuante */}
+      <button
+        onClick={() => setShowTypeModal(true)}
+        aria-label="Adicionar transação"
         className="shimmer-cta press-scale fixed bottom-24 left-1/2 z-30 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-gold"
         style={{ marginLeft: "120px" }}
       >
         <Plus size={26} strokeWidth={2.2} className="relative z-10" />
-      </Link>
+      </button>
+
+      {/* Modal — Despesa ou Receita */}
+      {showTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display text-[22px] text-foreground">O que queres registar?</h2>
+              <button
+                onClick={() => setShowTypeModal(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-background-soft"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setShowTypeModal(false); navigate("/add-expense?type=expense"); }}
+                className="flex flex-col items-center gap-3 rounded-2xl border-[1.5px] border-border bg-card py-6 transition-all hover:border-accent hover:shadow-gold"
+              >
+                <span className="text-4xl">💸</span>
+                <div className="text-center">
+                  <p className="text-[16px] font-medium text-foreground">Despesa</p>
+                  <p className="text-[12px] text-muted-foreground">O que gastaram</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setShowTypeModal(false); navigate("/add-expense?type=income"); }}
+                className="flex flex-col items-center gap-3 rounded-2xl border-[1.5px] border-border bg-card py-6 transition-all hover:border-accent hover:shadow-gold"
+              >
+                <span className="text-4xl">💰</span>
+                <div className="text-center">
+                  <p className="text-[16px] font-medium text-foreground">Receita</p>
+                  <p className="text-[12px] text-muted-foreground">O que receberam</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 };

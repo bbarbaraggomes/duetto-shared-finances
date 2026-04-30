@@ -9,7 +9,15 @@ export type Category =
   | "saude"
   | "lazer"
   | "viagem"
-  | "outros";
+  | "outros"
+  | "trabalho"
+  | "renda"
+  | "freelance"
+  | "investimento"
+  | "presente"
+  | "reembolso"
+  | "bonus"
+  | "outro";
 
 export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: "casa", label: "Casa", emoji: "🏠" },
@@ -31,6 +39,7 @@ export interface Transaction {
   note?: string;
   paidBy: PaidBy;
   date: string;
+  type: "expense" | "income";
 }
 
 export interface Goal {
@@ -85,7 +94,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     userIdRef.current = uid;
     setUserId(uid);
 
-    // 1. Garantir que o perfil do utilizador existe
     const { data: profile } = await supabase
       .from("users")
       .select("*")
@@ -103,7 +111,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
     const myEmail = email || "";
 
-    // 2. Buscar casal
     const { data: couples } = await supabase
       .from("couples")
       .select("*")
@@ -145,7 +152,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // 3. Subscrição
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("*")
@@ -163,7 +169,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
       });
 
-      // 4. Transacções
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")
@@ -179,11 +184,11 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
             note: t.description,
             paidBy: t.user_id === uid ? "me" : "partner",
             date: t.date,
+            type: (t.type as "expense" | "income") || "expense",
           }))
         );
       }
 
-      // 5. Metas
       const { data: goalsData } = await supabase
         .from("goals")
         .select("*")
@@ -276,7 +281,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       couple_id: cId,
       user_id: uId,
       amount: t.amount,
-      type: "expense",
+      type: t.type,
       category: t.category,
       description: t.note,
       date: t.date.split("T")[0],

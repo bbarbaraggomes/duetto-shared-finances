@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
@@ -8,14 +8,37 @@ import { AuthInput } from "@/components/duetto/AuthInput";
 import { CATEGORIES, Category, PaidBy, useDuetto } from "@/hooks/useDuettoData";
 import { cn } from "@/lib/utils";
 
+const INCOME_CATEGORIES = [
+  { id: "trabalho", label: "Trabalho", emoji: "💼" },
+  { id: "renda", label: "Renda", emoji: "🏠" },
+  { id: "freelance", label: "Freelance", emoji: "💻" },
+  { id: "investimento", label: "Investimento", emoji: "📈" },
+  { id: "presente", label: "Presente", emoji: "🎁" },
+  { id: "reembolso", label: "Reembolso", emoji: "↩️" },
+  { id: "bonus", label: "Bónus", emoji: "⭐" },
+  { id: "outro", label: "Outro", emoji: "📦" },
+];
+
 const AddExpense = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialType = searchParams.get("type") === "income" ? "income" : "expense";
+
   const { addTransaction, couple } = useDuetto();
+  const [type, setType] = useState<"expense" | "income">(initialType);
   const [amount, setAmount] = useState("0");
-  const [category, setCategory] = useState<Category>("mercado");
+  const [category, setCategory] = useState<string>(initialType === "income" ? "trabalho" : "mercado");
   const [note, setNote] = useState("");
   const [paidBy, setPaidBy] = useState<PaidBy>("me");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const isIncome = type === "income";
+  const activeCategories = isIncome ? INCOME_CATEGORIES : CATEGORIES;
+
+  const handleTypeChange = (t: "expense" | "income") => {
+    setType(t);
+    setCategory(t === "income" ? "trabalho" : "mercado");
+  };
 
   const pressKey = (k: string) => {
     setAmount((prev) => {
@@ -36,12 +59,13 @@ const AddExpense = () => {
     }
     addTransaction({
       amount: numeric,
-      category,
+      category: category as Category,
       note: note || undefined,
       paidBy,
       date: new Date(date).toISOString(),
+      type,
     });
-    toast.success("Despesa guardada.");
+    toast.success(isIncome ? "Receita guardada." : "Despesa guardada.");
     navigate("/dashboard");
   };
 
@@ -57,12 +81,38 @@ const AddExpense = () => {
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="font-display text-[20px] text-foreground">Nova despesa</h1>
+        <h1 className="font-display text-[20px] text-foreground">
+          {isIncome ? "Nova receita" : "Nova despesa"}
+        </h1>
         <span className="w-10" />
       </header>
 
+      {/* Toggle despesa / receita */}
+      <div className="mx-6 mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-background-soft p-1">
+        <button
+          type="button"
+          onClick={() => handleTypeChange("expense")}
+          className={cn(
+            "rounded-xl py-2.5 text-[14px] font-medium transition-all",
+            !isIncome ? "bg-card text-foreground shadow-soft" : "text-muted-foreground"
+          )}
+        >
+          💸 Despesa
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTypeChange("income")}
+          className={cn(
+            "rounded-xl py-2.5 text-[14px] font-medium transition-all",
+            isIncome ? "bg-card text-foreground shadow-soft" : "text-muted-foreground"
+          )}
+        >
+          💰 Receita
+        </button>
+      </div>
+
       <form onSubmit={handleSave} className="flex flex-1 flex-col px-6">
-        <div className="flex flex-col items-center py-8">
+        <div className="flex flex-col items-center py-6">
           <p className="text-[12px] uppercase tracking-[0.15em] text-muted-foreground">Valor</p>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="font-display text-[56px] leading-none text-foreground">
@@ -75,7 +125,7 @@ const AddExpense = () => {
         <div>
           <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Categoria</p>
           <div className="mt-3 grid grid-cols-4 gap-2">
-            {CATEGORIES.map((c) => {
+            {activeCategories.map((c) => {
               const active = category === c.id;
               return (
                 <button
@@ -97,12 +147,14 @@ const AddExpense = () => {
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <AuthInput label="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
 
         <div className="mt-4">
-          <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Pago por</p>
+          <p className="text-[12px] uppercase tracking-wide text-muted-foreground">
+            {isIncome ? "Recebido por" : "Pago por"}
+          </p>
           <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-background-soft p-1">
             {(["me", "partner"] as PaidBy[]).map((p) => {
               const active = paidBy === p;
@@ -134,7 +186,7 @@ const AddExpense = () => {
           />
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           {keys.map((k) => (
             <button
               key={k}
@@ -148,7 +200,9 @@ const AddExpense = () => {
         </div>
 
         <div className="mt-6 pb-6">
-          <PrimaryButton type="submit">Guardar despesa</PrimaryButton>
+          <PrimaryButton type="submit">
+            {isIncome ? "Guardar receita" : "Guardar despesa"}
+          </PrimaryButton>
         </div>
       </form>
     </AppShell>
