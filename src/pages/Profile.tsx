@@ -6,7 +6,7 @@ import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
 
-const res = await fetch(`${SUPABASE_URL}/functions/v1/quick-handler`, {
+const SUPABASE_FUNCTION_URL = "https://maskbsseptaihntezvcm.supabase.co/functions/v1/quick-handler";
 
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
@@ -64,7 +64,7 @@ const Profile = () => {
 
       const { data: { session } } = await supabase.auth.getSession();
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+      const res = await fetch(SUPABASE_FUNCTION_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -165,7 +165,6 @@ const Profile = () => {
         </section>
       )}
 
-      {/* Subscrição */}
       <section className="px-6 pt-4">
         <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">
           <div className="flex items-center gap-3">
@@ -218,7 +217,6 @@ const Profile = () => {
         </button>
       </section>
 
-      {/* Modal — escolher plano */}
       {showPlans && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
@@ -228,9 +226,7 @@ const Profile = () => {
                 <span className="text-[16px]">✕</span>
               </button>
             </div>
-
             <div className="space-y-3">
-              {/* Plano mensal */}
               <button
                 onClick={() => handleSubscribe("monthly")}
                 disabled={loadingPlan !== null}
@@ -246,12 +242,9 @@ const Profile = () => {
                     <p className="text-[12px] text-muted-foreground">/mês</p>
                   </div>
                 </div>
-                {loadingPlan === "monthly" && (
-                  <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>
-                )}
+                {loadingPlan === "monthly" && <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>}
               </button>
 
-              {/* Plano anual */}
               <button
                 onClick={() => handleSubscribe("yearly")}
                 disabled={loadingPlan !== null}
@@ -270,12 +263,9 @@ const Profile = () => {
                     <p className="text-[12px] text-muted-foreground">/ano</p>
                   </div>
                 </div>
-                {loadingPlan === "yearly" && (
-                  <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>
-                )}
+                {loadingPlan === "yearly" && <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>}
               </button>
             </div>
-
             <p className="mt-5 text-center text-[12px] text-muted-foreground">
               Pagamento seguro via Stripe · Cancela quando quiseres
             </p>
@@ -283,7 +273,6 @@ const Profile = () => {
         </div>
       )}
 
-      {/* Confirmação desligar */}
       {confirmUnlink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-6 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[360px] rounded-3xl bg-card p-6 shadow-card-up">
