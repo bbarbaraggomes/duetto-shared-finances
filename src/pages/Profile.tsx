@@ -6,6 +6,8 @@ import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
 
+const SUPABASE_URL = "https://maskbsseptaihntezvcm.supabase.co";
+
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
     className={`flex h-16 w-16 items-center justify-center rounded-full font-display text-[22px] ${
@@ -22,6 +24,8 @@ const Profile = () => {
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<"monthly" | "yearly" | null>(null);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -31,29 +35,14 @@ const Profile = () => {
 
   const handleCopyInvite = async () => {
     let coupleData = null;
-
-    const { data: c1 } = await supabase
-      .from("couples")
-      .select("id")
-      .eq("user1_id", userId)
-      .maybeSingle();
-
+    const { data: c1 } = await supabase.from("couples").select("id").eq("user1_id", userId).maybeSingle();
     if (c1) {
       coupleData = c1;
     } else {
-      const { data: c2 } = await supabase
-        .from("couples")
-        .select("id")
-        .eq("user2_id", userId)
-        .maybeSingle();
+      const { data: c2 } = await supabase.from("couples").select("id").eq("user2_id", userId).maybeSingle();
       if (c2) coupleData = c2;
     }
-
-    if (!coupleData) {
-      toast.error("Erro ao gerar link de convite.");
-      return;
-    }
-
+    if (!coupleData) { toast.error("Erro ao gerar link de convite."); return; }
     const inviteLink = `${window.location.origin}/register?invite=${coupleData.id}`;
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
@@ -61,55 +50,69 @@ const Profile = () => {
     setTimeout(() => setCopied(false), 3000);
   };
 
+  const handleSubscribe = async (plan: "monthly" | "yearly") => {
+    setLoadingPlan(plan);
+    try {
+      const { data: couples } = await supabase
+        .from("couples")
+        .select("id")
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+        .limit(1);
+
+      const coupleId = couples?.[0]?.id;
+      if (!coupleId) { toast.error("Erro ao encontrar o casal."); return; }
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          plan,
+          coupleId,
+          successUrl: `${window.location.origin}/dashboard?success=true`,
+          cancelUrl: `${window.location.origin}/profile`,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error("Erro ao criar sessão de pagamento.");
+      }
+    } catch (err) {
+      toast.error("Erro ao processar pagamento.");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   const handleUnlink = async () => {
     if (!userId) return;
     setUnlinking(true);
-
-    // Buscar o casal actual
     const { data: couples } = await supabase
       .from("couples")
       .select("id, user1_id, user2_id")
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .limit(1);
-
     const coupleData = couples?.[0];
-
-    if (!coupleData) {
-      toast.error("Erro ao encontrar o casal.");
-      setUnlinking(false);
-      return;
-    }
-
-    // Se eu sou o user1 — remover o user2
-    // Se eu sou o user2 — remover-me do casal (user2 = null)
-    if (coupleData.user1_id === userId) {
-      await supabase
-        .from("couples")
-        .update({ user2_id: null, status: "pending" })
-        .eq("id", coupleData.id);
-    } else {
-      await supabase
-        .from("couples")
-        .update({ user2_id: null, status: "pending" })
-        .eq("id", coupleData.id);
-    }
-
-    // Actualizar o estado local
-    setCouple({
-      ...couple,
-      partner: { name: "", email: "", pending: true },
-    });
-
+    if (!coupleData) { toast.error("Erro ao encontrar o casal."); setUnlinking(false); return; }
+    await supabase.from("couples").update({ user2_id: null, status: "pending" }).eq("id", coupleData.id);
+    setCouple({ ...couple, partner: { name: "", email: "", pending: true } });
     setUnlinking(false);
     setConfirmUnlink(false);
     toast.success("Casal desligado. Podem recomeçar quando quiserem.");
   };
 
   const sub = couple.subscription;
-  const subLabel =
-    sub.status === "trial"
-      ? `Trial — ${sub.daysLeft} dias restantes`
-      : `Ativo — ${sub.plan ?? "Plano Anual"}`;
+  const isTrial = sub.status === "trial";
+  const subLabel = isTrial
+    ? `Trial — ${sub.daysLeft} dias restantes`
+    : `Ativo — ${sub.plan ?? "Plano Pro"}`;
 
   const partnerPending = couple.partner.pending;
 
@@ -162,6 +165,7 @@ const Profile = () => {
         </section>
       )}
 
+      {/* Subscrição */}
       <section className="px-6 pt-4">
         <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">
           <div className="flex items-center gap-3">
@@ -174,10 +178,10 @@ const Profile = () => {
             </div>
           </div>
           <button
-            onClick={() => toast.info("Em breve.")}
+            onClick={() => setShowPlans(true)}
             className="mt-4 flex w-full items-center justify-between rounded-2xl bg-primary-foreground/10 px-4 py-3 text-[14px] font-medium transition-colors hover:bg-primary-foreground/15"
           >
-            <span>Gerir subscrição</span>
+            <span>{isTrial ? "Subscrever agora" : "Gerir subscrição"}</span>
             <ChevronRight size={16} />
           </button>
         </div>
@@ -214,6 +218,72 @@ const Profile = () => {
         </button>
       </section>
 
+      {/* Modal — escolher plano */}
+      {showPlans && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display text-[22px] text-foreground">Escolhe o teu plano</h2>
+              <button onClick={() => setShowPlans(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-background-soft">
+                <span className="text-[16px]">✕</span>
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Plano mensal */}
+              <button
+                onClick={() => handleSubscribe("monthly")}
+                disabled={loadingPlan !== null}
+                className="w-full rounded-2xl border-[1.5px] border-border bg-card p-5 text-left transition-all hover:border-accent hover:shadow-gold disabled:opacity-60"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[16px] font-medium text-foreground">Plano Mensal</p>
+                    <p className="text-[13px] text-muted-foreground">Cancela quando quiseres</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-[22px] text-foreground">5,49€</p>
+                    <p className="text-[12px] text-muted-foreground">/mês</p>
+                  </div>
+                </div>
+                {loadingPlan === "monthly" && (
+                  <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>
+                )}
+              </button>
+
+              {/* Plano anual */}
+              <button
+                onClick={() => handleSubscribe("yearly")}
+                disabled={loadingPlan !== null}
+                className="w-full rounded-2xl border-[1.5px] border-accent bg-accent/5 p-5 text-left transition-all hover:shadow-gold disabled:opacity-60 relative"
+              >
+                <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
+                  2 meses grátis
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[16px] font-medium text-foreground">Plano Anual</p>
+                    <p className="text-[13px] text-muted-foreground">4,42€/mês · poupas 13€</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-[22px] text-foreground">52,99€</p>
+                    <p className="text-[12px] text-muted-foreground">/ano</p>
+                  </div>
+                </div>
+                {loadingPlan === "yearly" && (
+                  <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>
+                )}
+              </button>
+            </div>
+
+            <p className="mt-5 text-center text-[12px] text-muted-foreground">
+              Pagamento seguro via Stripe · Cancela quando quiseres
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação desligar */}
       {confirmUnlink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-6 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[360px] rounded-3xl bg-card p-6 shadow-card-up">
