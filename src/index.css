@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Duetto Design System
+   All colors MUST be HSL.
+   Palette:
+   - bg #F7F6F3 warm off-white
+   - bg-soft #EDE8DF
+   - primary #1A1A2E deep navy
+   - accent  #C8A96E warm gold
+   - text-secondary #8A8A9A
+   - success #3DAA7D
+   - error   #E05A5A
+*/
+
+@layer base {
+  :root {
+    --background: 45 24% 96%;            /* #F7F6F3 */
+    --background-soft: 38 28% 90%;       /* #EDE8DF */
+    --foreground: 240 28% 14%;           /* #1A1A2E */
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 28% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 28% 14%;
+
+    --primary: 240 28% 14%;              /* navy */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 38 28% 90%;
+    --secondary-foreground: 240 28% 14%;
+
+    --muted: 45 18% 92%;
+    --muted-foreground: 240 9% 57%;      /* #8A8A9A */
+
+    --accent: 37 45% 60%;                /* #C8A96E gold */
+    --accent-foreground: 240 28% 14%;
+    --accent-soft: 37 45% 60% / 0.18;
+
+    --destructive: 0 70% 62%;            /* #E05A5A */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 156 47% 45%;              /* #3DAA7D */
+    --success-foreground: 0 0% 100%;
+
+    --border: 0 0% 89%;                  /* #E2E2E2 */
+    --input: 0 0% 89%;
+    --ring: 37 45% 60%;
+
+    --placeholder: 240 11% 79%;          /* #C4C4CF */
+
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-warm: linear-gradient(180deg, hsl(45 24% 96%) 0%, hsl(38 28% 90%) 100%);
+    --gradient-gold-shimmer: linear-gradient(
+      110deg,
+      transparent 30%,
+      hsl(37 60% 75% / 0.45) 50%,
+      transparent 70%
+    );
+
+    /* Shadows */
+    --shadow-card-up: 0 -8px 40px hsl(240 28% 14% / 0.06);
+    --shadow-soft: 0 2px 12px hsl(240 28% 14% / 0.08);
+    --shadow-gold: 0 8px 24px hsl(37 45% 60% / 0.25);
+
+    /* Motion */
+    --ease-duetto: cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+
+  .font-display {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .bg-warm-gradient {
+    background: var(--gradient-warm);
+  }
+
+  /* Shimmer sweep on the CTA */
+  .shimmer-cta {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .shimmer-cta::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-gold-shimmer);
+    transform: translateX(-100%);
+    animation: duetto-shimmer 3s var(--ease-duetto) infinite;
+    pointer-events: none;
+  }
+
+  @keyframes duetto-shimmer {
+    0%   { transform: translateX(-100%); }
+    60%  { transform: translateX(100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes duetto-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes duetto-card-rise {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes duetto-glow-pulse {
+    0%, 100% { box-shadow: 0 2px 12px hsl(240 28% 14% / 0.08); }
+    50%      { box-shadow: 0 2px 18px hsl(37 45% 60% / 0.35); }
+  }
+
+  .animate-fade-in {
+    animation: duetto-fade-in 400ms var(--ease-duetto) both;
+  }
+  .animate-card-rise {
+    animation: duetto-card-rise 500ms var(--ease-duetto) 200ms both;
+  }
+  .hover-glow:hover {
+    animation: duetto-glow-pulse 1.6s var(--ease-duetto) infinite;
+  }
+
+  .press-scale {
+    transition: transform 100ms var(--ease-duetto);
+  }
+  .press-scale:active {
+    transform: scale(0.98);
+  }
+}

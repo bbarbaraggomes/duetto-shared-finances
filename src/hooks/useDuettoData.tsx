@@ -1,0 +1,325 @@
+import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export type Category =
+  | "casa"
+  | "mercado"
+  | "restaurante"
+  | "transporte"
+  | "saude"
+  | "lazer"
+  | "viagem"
+  | "outros";
+
+export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
+  { id: "casa", label: "Casa", emoji: "🏠" },
+  { id: "mercado", label: "Mercado", emoji: "🛒" },
+  { id: "restaurante", label: "Restaurante", emoji: "🍽️" },
+  { id: "transporte", label: "Transporte", emoji: "🚗" },
+  { id: "saude", label: "Saúde", emoji: "💊" },
+  { id: "lazer", label: "Lazer", emoji: "🎬" },
+  { id: "viagem", label: "Viagem", emoji: "✈️" },
+  { id: "outros", label: "Outros", emoji: "📦" },
+];
+
+export type PaidBy = "me" | "partner";
+
+export interface Transaction {
+  id: string;
+  amount: number;
+  category: Category;
+  note?: string;
+  paidBy: PaidBy;
+  date: string;
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  emoji: string;
+  target: number;
+  current: number;
+  deadline: string;
+}
+
+export interface Couple {
+  me: { name: string; email: string };
+  partner: { name: string; email: string; pending?: boolean };
+  monthIncome: number;
+  subscription: { status: "trial" | "active"; daysLeft?: number; plan?: string };
+}
+
+interface Ctx {
+  couple: Couple;
+  setCouple: (c: Couple) => void;
+  transactions: Transaction[];
+  addTransaction: (t: Omit<Transaction, "id">) => void;
+  goals: Goal[];
+  addGoal: (g: Omit<Goal, "id" | "current">) => void;
+  loading: boolean;
+  userId: string | null;
+}
+
+const DuettoContext = createContext<Ctx | null>(null);
+
+const DEFAULT_COUPLE: Couple = {
+  me: { name: "", email: "" },
+  partner: { name: "", email: "", pending: true },
+  monthIncome: 0,
+  subscription: { status: "trial", daysLeft: 14 },
+};
+
+export const DuettoProvider = ({ children }: { children: ReactNode }) => {
+  const [couple, setCouple] = useState<Couple>(DEFAULT_COUPLE);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [coupleId, setCoupleId] = useState<string | null>(null);
+
+  const coupleIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
+
+  const loadData = async (uid: string, email: string, metadata: any) => {
+    console.log("✅ loadData chamado com uid:", uid);
+    setLoading(true);
+
+    userIdRef.current = uid;
+    setUserId(uid);
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", uid)
+      .maybeSingle();
+
+    if (!profile) {
+      await supabase.from("users").insert({
+        id: uid,
+        email: email,
+        full_name: metadata?.full_name || email?.split("@")[0],
+      });
+    }
+
+    const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
+    const myEmail = email || "";
+
+    // Buscar casal — primeiro como user1, depois como user2
+    let coupleData = null;
+    const { data: c1 } = await supabase
+      .from("couples")
+      .select("*")
+      .eq("user1_id", uid)
+      .maybeSingle();
+
+    if (c1) {
+      coupleData = c1;
+    } else {
+      const { data: c2 } = await supabase
+        .from("couples")
+        .select("*")
+        .eq("user2_id", uid)
+        .maybeSingle();
+      if (c2) coupleData = c2;
+    }
+
+    console.log("👫 coupleData:", coupleData);
+
+    if (coupleData) {
+      setCoupleId(coupleData.id);
+      coupleIdRef.current = coupleData.id;
+      console.log("✅ coupleIdRef definido:", coupleData.id);
+
+      const partnerId = coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
+      let partnerName = "";
+      let partnerEmail = "";
+      let partnerPending = true;
+
+      if (partnerId) {
+        const { data: partnerProfile } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", partnerId)
+          .maybeSingle();
+        partnerName = partnerProfile?.full_name || "";
+        partnerEmail = partnerProfile?.email || "";
+        partnerPending = false;
+      }
+
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("couple_id", coupleData.id)
+        .maybeSingle();
+
+      const daysLeft = sub?.trial_ends_at
+        ? Math.max(0, Math.ceil((new Date(sub.trial_ends_at).getTime() - Date.now()) / 86400000))
+        : 14;
+
+      setCouple({
+        me: { name: myName, email: myEmail },
+        partner: { name: partnerName, email: partnerEmail, pending: partnerPending },
+        monthIncome: 0,
+        subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
+      });
+
+      const { data: txData } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("couple_id", coupleData.id)
+        .order("date", { ascending: false });
+
+      if (txData) {
+        setTransactions(txData.map((t) => ({
+          id: t.id,
+          amount: Number(t.amount),
+          category: "outros" as Category,
+          note: t.description,
+          paidBy: t.user_id === uid ? "me" : "partner",
+          date: t.date,
+        })));
+      }
+
+      const { data: goalsData } = await supabase
+        .from("goals")
+        .select("*")
+        .eq("couple_id", coupleData.id);
+
+      if (goalsData) {
+        setGoals(goalsData.map((g) => ({
+          id: g.id,
+          name: g.name,
+          emoji: "🎯",
+          target: Number(g.target_amount),
+          current: Number(g.current_amount),
+          deadline: g.deadline || "",
+        })));
+      }
+
+    } else {
+      console.log("⚠️ Sem casal — a criar novo...");
+      const { data: newCouple } = await supabase
+        .from("couples")
+        .insert({ user1_id: uid, status: "pending" })
+        .select()
+        .single();
+
+      if (newCouple) {
+        setCoupleId(newCouple.id);
+        coupleIdRef.current = newCouple.id;
+        await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
+        console.log("✅ Novo casal criado:", newCouple.id);
+      }
+
+      setCouple({
+        me: { name: myName, email: myEmail },
+        partner: { name: "", email: "", pending: true },
+        monthIncome: 0,
+        subscription: { status: "trial", daysLeft: 14 },
+      });
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    let loaded = false;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("🔑 getSession:", session?.user?.id ?? "sem sessão");
+      if (session?.user && !loaded) {
+        loaded = true;
+        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("🔄 onAuthStateChange:", event, session?.user?.id ?? "sem user");
+      if (event === "SIGNED_IN" && session?.user) {
+        loaded = true;
+        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+      }
+      if (event === "TOKEN_REFRESHED" && session?.user) {
+        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+      }
+      if (event === "SIGNED_OUT") {
+        loaded = false;
+        setCouple(DEFAULT_COUPLE);
+        setTransactions([]);
+        setGoals([]);
+        setUserId(null);
+        setCoupleId(null);
+        coupleIdRef.current = null;
+        userIdRef.current = null;
+      }
+    });
+
+    const timeout = setTimeout(() => {
+      if (!loaded) setLoading(false);
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  const addTransaction = async (t: Omit<Transaction, "id">) => {
+    const cId = coupleIdRef.current;
+    const uId = userIdRef.current;
+    console.log("💰 addTransaction", { cId, uId });
+    if (!cId || !uId) return;
+    const newTx: Transaction = { ...t, id: crypto.randomUUID() };
+    setTransactions((prev) => [newTx, ...prev]);
+    const { error } = await supabase.from("transactions").insert({
+      id: newTx.id,
+      couple_id: cId,
+      user_id: uId,
+      amount: t.amount,
+      type: "expense",
+      description: t.note,
+      date: t.date.split("T")[0],
+    });
+    if (error) console.error("❌ Erro Supabase transactions:", error);
+  };
+
+  const addGoal = async (g: Omit<Goal, "id" | "current">) => {
+    const cId = coupleIdRef.current;
+    if (!cId) return;
+    const newGoal: Goal = { ...g, id: crypto.randomUUID(), current: 0 };
+    setGoals((prev) => [...prev, newGoal]);
+    const { error } = await supabase.from("goals").insert({
+      id: newGoal.id,
+      couple_id: cId,
+      name: g.name,
+      target_amount: g.target,
+      deadline: g.deadline,
+    });
+    if (error) console.error("❌ Erro Supabase goals:", error);
+  };
+
+  const value = useMemo<Ctx>(
+    () => ({
+      couple,
+      setCouple,
+      transactions,
+      addTransaction,
+      goals,
+      addGoal,
+      loading,
+      userId,
+    }),
+    [couple, transactions, goals, loading, userId, coupleId],
+  );
+
+  return <DuettoContext.Provider value={value}>{children}</DuettoContext.Provider>;
+};
+
+export const useDuetto = () => {
+  const ctx = useContext(DuettoContext);
+  if (!ctx) throw new Error("useDuetto must be used within DuettoProvider");
+  return ctx;
+};
+
+export const formatEUR = (n: number) =>
+  new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
