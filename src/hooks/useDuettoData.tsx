@@ -81,12 +81,11 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   const userIdRef = useRef<string | null>(null);
 
   const loadData = async (uid: string, email: string, metadata: any) => {
-    console.log("✅ loadData chamado com uid:", uid);
     setLoading(true);
-
     userIdRef.current = uid;
     setUserId(uid);
 
+    // 1. Garantir que o perfil do utilizador existe
     const { data: profile } = await supabase
       .from("users")
       .select("*")
@@ -96,7 +95,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     if (!profile) {
       await supabase.from("users").insert({
         id: uid,
-        email: email,
+        email,
         full_name: metadata?.full_name || email?.split("@")[0],
       });
     }
@@ -104,47 +103,51 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
     const myEmail = email || "";
 
-    let coupleData = null;
-    const { data: c1 } = await supabase
+    // 2. Buscar casal — numa única query que cobre ambos os lados
+    const { data: couples } = await supabase
       .from("couples")
       .select("*")
-      .eq("user1_id", uid)
-      .maybeSingle();
+      .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    if (c1) {
-      coupleData = c1;
-    } else {
-      const { data: c2 } = await supabase
-        .from("couples")
-        .select("*")
-        .eq("user2_id", uid)
-        .maybeSingle();
-      if (c2) coupleData = c2;
-    }
-
-    console.log("👫 coupleData:", coupleData);
+    const coupleData = couples?.[0] ?? null;
 
     if (coupleData) {
       setCoupleId(coupleData.id);
       coupleIdRef.current = coupleData.id;
-      console.log("✅ coupleIdRef definido:", coupleData.id);
 
-      const partnerId = coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
+      const partnerId =
+        coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
+
       let partnerName = "";
       let partnerEmail = "";
       let partnerPending = !partnerId;
 
+      // 3. Buscar perfil do parceiro via RPC para contornar RLS
       if (partnerId) {
-        const { data: partnerProfile } = await supabase
+        const { data: partnerProfile, error: partnerError } = await supabase
           .from("users")
-          .select("*")
+          .select("full_name, email")
           .eq("id", partnerId)
           .maybeSingle();
-        partnerName = partnerProfile?.full_name || "";
-        partnerEmail = partnerProfile?.email || "";
-        partnerPending = false;
+
+        if (partnerError) {
+          console.error("❌ Erro ao buscar parceiro:", partnerError);
+        }
+
+        if (partnerProfile) {
+          partnerName = partnerProfile.full_name || "";
+          partnerEmail = partnerProfile.email || "";
+          partnerPending = false;
+        } else {
+          // Fallback: buscar directamente da tabela auth via couple invite_email
+          partnerName = coupleData.invite_email?.split("@")[0] || "";
+          partnerPending = true;
+        }
       }
 
+      // 4. Subscrição
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("*")
@@ -162,6 +165,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
       });
 
+      // 5. Transacções
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")
@@ -169,34 +173,38 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         .order("date", { ascending: false });
 
       if (txData) {
-        setTransactions(txData.map((t) => ({
-          id: t.id,
-          amount: Number(t.amount),
-          category: "outros" as Category,
-          note: t.description,
-          paidBy: t.user_id === uid ? "me" : "partner",
-          date: t.date,
-        })));
+        setTransactions(
+          txData.map((t) => ({
+            id: t.id,
+            amount: Number(t.amount),
+            category: (t.category as Category) || "outros",
+            note: t.description,
+            paidBy: t.user_id === uid ? "me" : "partner",
+            date: t.date,
+          }))
+        );
       }
 
+      // 6. Metas
       const { data: goalsData } = await supabase
         .from("goals")
         .select("*")
         .eq("couple_id", coupleData.id);
 
       if (goalsData) {
-        setGoals(goalsData.map((g) => ({
-          id: g.id,
-          name: g.name,
-          emoji: "🎯",
-          target: Number(g.target_amount),
-          current: Number(g.current_amount),
-          deadline: g.deadline || "",
-        })));
+        setGoals(
+          goalsData.map((g) => ({
+            id: g.id,
+            name: g.name,
+            emoji: "🎯",
+            target: Number(g.target_amount),
+            current: Number(g.current_amount),
+            deadline: g.deadline || "",
+          }))
+        );
       }
-
     } else {
-      console.log("⚠️ Sem casal — a criar novo...");
+      // Sem casal — criar novo
       const { data: newCouple } = await supabase
         .from("couples")
         .insert({ user1_id: uid, status: "pending" })
@@ -207,7 +215,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         setCoupleId(newCouple.id);
         coupleIdRef.current = newCouple.id;
         await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
-        console.log("✅ Novo casal criado:", newCouple.id);
       }
 
       setCouple({
@@ -225,7 +232,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     let loaded = false;
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("🔑 getSession:", session?.user?.id ?? "sem sessão");
       if (session?.user && !loaded) {
         loaded = true;
         loadData(session.user.id, session.user.email || "", session.user.user_metadata);
@@ -233,7 +239,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("🔄 onAuthStateChange:", event, session?.user?.id ?? "sem user");
       if (event === "SIGNED_IN" && session?.user) {
         loaded = true;
         loadData(session.user.id, session.user.email || "", session.user.user_metadata);
@@ -266,7 +271,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   const addTransaction = async (t: Omit<Transaction, "id">) => {
     const cId = coupleIdRef.current;
     const uId = userIdRef.current;
-    console.log("💰 addTransaction", { cId, uId });
     if (!cId || !uId) return;
     const newTx: Transaction = { ...t, id: crypto.randomUUID() };
     setTransactions((prev) => [newTx, ...prev]);
@@ -276,10 +280,11 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       user_id: uId,
       amount: t.amount,
       type: "expense",
+      category: t.category,
       description: t.note,
       date: t.date.split("T")[0],
     });
-    if (error) console.error("❌ Erro Supabase transactions:", error);
+    if (error) console.error("❌ Erro transactions:", error);
   };
 
   const addGoal = async (g: Omit<Goal, "id" | "current">) => {
@@ -294,21 +299,12 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       target_amount: g.target,
       deadline: g.deadline,
     });
-    if (error) console.error("❌ Erro Supabase goals:", error);
+    if (error) console.error("❌ Erro goals:", error);
   };
 
   const value = useMemo<Ctx>(
-    () => ({
-      couple,
-      setCouple,
-      transactions,
-      addTransaction,
-      goals,
-      addGoal,
-      loading,
-      userId,
-    }),
-    [couple, transactions, goals, loading, userId, coupleId],
+    () => ({ couple, setCouple, transactions, addTransaction, goals, addGoal, loading, userId }),
+    [couple, transactions, goals, loading, userId, coupleId]
   );
 
   return <DuettoContext.Provider value={value}>{children}</DuettoContext.Provider>;

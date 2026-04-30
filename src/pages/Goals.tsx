@@ -64,7 +64,7 @@ const Goals = () => {
         ) : (
           <ul className="space-y-3">
             {goals.map((g) => {
-              const pct = (g.current / g.target) * 100;
+              const pct = g.target > 0 ? (g.current / g.target) * 100 : 0;
               return (
                 <li key={g.id} className="rounded-3xl bg-card p-5 shadow-soft">
                   <div className="flex items-center justify-between">
@@ -91,7 +91,6 @@ const Goals = () => {
         )}
       </div>
 
-      {/* Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] animate-card-rise rounded-t-[32px] bg-card px-6 pt-5 pb-8 shadow-card-up">

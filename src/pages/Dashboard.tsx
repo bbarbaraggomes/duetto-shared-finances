@@ -94,14 +94,16 @@ const Dashboard = () => {
           <Link to="/expenses" className="text-[13px] text-accent">Ver tudo</Link>
         </div>
         <ul className="mt-4 space-y-2">
+          {recent.length === 0 && (
+            <li className="py-8 text-center text-[14px] text-muted-foreground">
+              Ainda não há despesas este mês.
+            </li>
+          )}
           {recent.map((t) => {
-            const cat = CATEGORIES.find((c) => c.id === t.category)!;
+            const cat = CATEGORIES.find((c) => c.id === t.category) ?? CATEGORIES[CATEGORIES.length - 1];
             const who = t.paidBy === "me" ? couple.me.name : couple.partner.name;
             return (
-              <li
-                key={t.id}
-                className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft"
-              >
+              <li key={t.id} className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-soft">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background-soft text-xl">
                   {cat.emoji}
                 </div>
@@ -114,7 +116,7 @@ const Dashboard = () => {
                   </p>
                 </div>
                 <p className="text-[15px] font-semibold text-foreground">
-                  −{formatEUR(t.amount)}
+                  -{formatEUR(t.amount)}
                 </p>
               </li>
             );
