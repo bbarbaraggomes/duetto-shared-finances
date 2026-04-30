@@ -18,8 +18,9 @@ const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { couple, userId } = useDuetto();
+  const { couple, userId, setCouple } = useDuetto();
   const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleLogout = async () => {
@@ -58,6 +59,50 @@ const Profile = () => {
     setCopied(true);
     toast.success("Link copiado!");
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleUnlink = async () => {
+    if (!userId) return;
+    setUnlinking(true);
+
+    // Buscar o casal actual
+    const { data: couples } = await supabase
+      .from("couples")
+      .select("id, user1_id, user2_id")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .limit(1);
+
+    const coupleData = couples?.[0];
+
+    if (!coupleData) {
+      toast.error("Erro ao encontrar o casal.");
+      setUnlinking(false);
+      return;
+    }
+
+    // Se eu sou o user1 — remover o user2
+    // Se eu sou o user2 — remover-me do casal (user2 = null)
+    if (coupleData.user1_id === userId) {
+      await supabase
+        .from("couples")
+        .update({ user2_id: null, status: "pending" })
+        .eq("id", coupleData.id);
+    } else {
+      await supabase
+        .from("couples")
+        .update({ user2_id: null, status: "pending" })
+        .eq("id", coupleData.id);
+    }
+
+    // Actualizar o estado local
+    setCouple({
+      ...couple,
+      partner: { name: "", email: "", pending: true },
+    });
+
+    setUnlinking(false);
+    setConfirmUnlink(false);
+    toast.success("Casal desligado. Podem recomeçar quando quiserem.");
   };
 
   const sub = couple.subscription;
@@ -174,7 +219,7 @@ const Profile = () => {
           <div className="w-full max-w-[360px] rounded-3xl bg-card p-6 shadow-card-up">
             <h3 className="font-display text-[20px] text-foreground">Desligar o casal?</h3>
             <p className="mt-2 text-[14px] text-muted-foreground">
-              Esta ação separa as vossas contas. O histórico ficará disponível, mas não poderão continuar a gerir juntos.
+              As vossas contas ficam separadas. O histórico é preservado mas deixam de partilhar despesas e metas.
             </p>
             <div className="mt-5 flex gap-2">
               <button
@@ -184,13 +229,11 @@ const Profile = () => {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  setConfirmUnlink(false);
-                  toast.success("Casal desligado.");
-                }}
-                className="flex-1 rounded-2xl bg-destructive py-3 text-[14px] font-semibold text-destructive-foreground"
+                onClick={handleUnlink}
+                disabled={unlinking}
+                className="flex-1 rounded-2xl bg-destructive py-3 text-[14px] font-semibold text-destructive-foreground disabled:opacity-60"
               >
-                Desligar
+                {unlinking ? "A desligar..." : "Desligar"}
               </button>
             </div>
           </div>
