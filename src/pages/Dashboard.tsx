@@ -160,7 +160,6 @@ const Dashboard = () => {
         </ul>
       </section>
 
-      {/* Botão + flutuante */}
       <button
         onClick={() => setShowTypeModal(true)}
         aria-label="Adicionar transação"
@@ -170,7 +169,6 @@ const Dashboard = () => {
         <Plus size={26} strokeWidth={2.2} className="relative z-10" />
       </button>
 
-      {/* Modal — Despesa ou Receita */}
       {showTypeModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
