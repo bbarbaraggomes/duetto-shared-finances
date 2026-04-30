@@ -2,22 +2,10 @@ import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useSt
 import { supabase } from "@/integrations/supabase/client";
 
 export type Category =
-  | "casa"
-  | "mercado"
-  | "restaurante"
-  | "transporte"
-  | "saude"
-  | "lazer"
-  | "viagem"
-  | "outros"
-  | "trabalho"
-  | "renda"
-  | "freelance"
-  | "investimento"
-  | "presente"
-  | "reembolso"
-  | "bonus"
-  | "outro";
+  | "casa" | "mercado" | "restaurante" | "transporte"
+  | "saude" | "lazer" | "viagem" | "outros"
+  | "trabalho" | "renda" | "freelance" | "investimento"
+  | "presente" | "reembolso" | "bonus" | "outro";
 
 export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: "casa", label: "Casa", emoji: "🏠" },
@@ -54,7 +42,6 @@ export interface Goal {
 export interface Couple {
   me: { name: string; email: string };
   partner: { name: string; email: string; pending?: boolean };
-  monthIncome: number;
   subscription: { status: "trial" | "active"; daysLeft?: number; plan?: string };
 }
 
@@ -74,7 +61,6 @@ const DuettoContext = createContext<Ctx | null>(null);
 const DEFAULT_COUPLE: Couple = {
   me: { name: "", email: "" },
   partner: { name: "", email: "", pending: true },
-  monthIncome: 0,
   subscription: { status: "trial", daysLeft: 14 },
 };
 
@@ -95,10 +81,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     setUserId(uid);
 
     const { data: profile } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", uid)
-      .maybeSingle();
+      .from("users").select("*").eq("id", uid).maybeSingle();
 
     if (!profile) {
       await supabase.from("users").insert({
@@ -124,23 +107,14 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       setCoupleId(coupleData.id);
       coupleIdRef.current = coupleData.id;
 
-      const partnerId =
-        coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
-
+      const partnerId = coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
       let partnerName = "";
       let partnerEmail = "";
       let partnerPending = !partnerId;
 
       if (partnerId) {
-        const { data: partnerProfile, error: partnerError } = await supabase
-          .from("users")
-          .select("full_name, email")
-          .eq("id", partnerId)
-          .maybeSingle();
-
-        if (partnerError) {
-          console.error("❌ Erro ao buscar parceiro:", partnerError);
-        }
+        const { data: partnerProfile } = await supabase
+          .from("users").select("full_name, email").eq("id", partnerId).maybeSingle();
 
         if (partnerProfile) {
           partnerName = partnerProfile.full_name || "";
@@ -153,10 +127,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("couple_id", coupleData.id)
-        .maybeSingle();
+        .from("subscriptions").select("*").eq("couple_id", coupleData.id).maybeSingle();
 
       const daysLeft = sub?.trial_ends_at
         ? Math.max(0, Math.ceil((new Date(sub.trial_ends_at).getTime() - Date.now()) / 86400000))
@@ -165,53 +136,40 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: partnerName, email: partnerEmail, pending: partnerPending },
-        monthIncome: Number(coupleData.month_income) || 0,
         subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
       });
 
       const { data: txData } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("couple_id", coupleData.id)
-        .order("date", { ascending: false });
+        .from("transactions").select("*").eq("couple_id", coupleData.id).order("date", { ascending: false });
 
       if (txData) {
-        setTransactions(
-          txData.map((t) => ({
-            id: t.id,
-            amount: Number(t.amount),
-            category: (t.category as Category) || "outros",
-            note: t.description,
-            paidBy: t.user_id === uid ? "me" : "partner",
-            date: t.date,
-            type: (t.type as "expense" | "income") || "expense",
-          }))
-        );
+        setTransactions(txData.map((t) => ({
+          id: t.id,
+          amount: Number(t.amount),
+          category: (t.category as Category) || "outros",
+          note: t.description,
+          paidBy: t.user_id === uid ? "me" : "partner",
+          date: t.date,
+          type: (t.type as "expense" | "income") || "expense",
+        })));
       }
 
       const { data: goalsData } = await supabase
-        .from("goals")
-        .select("*")
-        .eq("couple_id", coupleData.id);
+        .from("goals").select("*").eq("couple_id", coupleData.id);
 
       if (goalsData) {
-        setGoals(
-          goalsData.map((g) => ({
-            id: g.id,
-            name: g.name,
-            emoji: "🎯",
-            target: Number(g.target_amount),
-            current: Number(g.current_amount),
-            deadline: g.deadline || "",
-          }))
-        );
+        setGoals(goalsData.map((g) => ({
+          id: g.id,
+          name: g.name,
+          emoji: "🎯",
+          target: Number(g.target_amount),
+          current: Number(g.current_amount),
+          deadline: g.deadline || "",
+        })));
       }
     } else {
       const { data: newCouple } = await supabase
-        .from("couples")
-        .insert({ user1_id: uid, status: "pending" })
-        .select()
-        .single();
+        .from("couples").insert({ user1_id: uid, status: "pending" }).select().single();
 
       if (newCouple) {
         setCoupleId(newCouple.id);
@@ -222,7 +180,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: "", email: "", pending: true },
-        monthIncome: 0,
         subscription: { status: "trial", daysLeft: 14 },
       });
     }
@@ -260,14 +217,8 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    const timeout = setTimeout(() => {
-      if (!loaded) setLoading(false);
-    }, 3000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+    const timeout = setTimeout(() => { if (!loaded) setLoading(false); }, 3000);
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   const addTransaction = async (t: Omit<Transaction, "id">) => {
