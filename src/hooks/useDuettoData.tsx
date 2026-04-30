@@ -103,7 +103,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
     const myEmail = email || "";
 
-    // 2. Buscar casal — numa única query que cobre ambos os lados
+    // 2. Buscar casal
     const { data: couples } = await supabase
       .from("couples")
       .select("*")
@@ -124,7 +124,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       let partnerEmail = "";
       let partnerPending = !partnerId;
 
-      // 3. Buscar perfil do parceiro via RPC para contornar RLS
       if (partnerId) {
         const { data: partnerProfile, error: partnerError } = await supabase
           .from("users")
@@ -141,13 +140,12 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
           partnerEmail = partnerProfile.email || "";
           partnerPending = false;
         } else {
-          // Fallback: buscar directamente da tabela auth via couple invite_email
           partnerName = coupleData.invite_email?.split("@")[0] || "";
           partnerPending = true;
         }
       }
 
-      // 4. Subscrição
+      // 3. Subscrição
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("*")
@@ -161,11 +159,11 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: partnerName, email: partnerEmail, pending: partnerPending },
-        monthIncome: 0,
+        monthIncome: Number(coupleData.month_income) || 0,
         subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
       });
 
-      // 5. Transacções
+      // 4. Transacções
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")
@@ -185,7 +183,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         );
       }
 
-      // 6. Metas
+      // 5. Metas
       const { data: goalsData } = await supabase
         .from("goals")
         .select("*")
@@ -204,7 +202,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         );
       }
     } else {
-      // Sem casal — criar novo
       const { data: newCouple } = await supabase
         .from("couples")
         .insert({ user1_id: uid, status: "pending" })

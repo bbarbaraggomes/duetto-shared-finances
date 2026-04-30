@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus } from "lucide-react";
+import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
-import { useDuetto } from "@/hooks/useDuettoData";
+import { formatEUR, useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
 
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
@@ -15,6 +15,67 @@ const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
     {name ? name.charAt(0).toUpperCase() : "?"}
   </div>
 );
+
+const IncomeCard = () => {
+  const { couple, setCouple, userId } = useDuetto();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(couple.monthIncome || ""));
+
+  const handleSave = async () => {
+    const income = parseFloat(value.replace(",", ".")) || 0;
+    const { data: coupleData } = await supabase
+      .from("couples")
+      .select("id")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .limit(1)
+      .single();
+
+    if (coupleData) {
+      await supabase
+        .from("couples")
+        .update({ month_income: income })
+        .eq("id", coupleData.id);
+      setCouple({ ...couple, monthIncome: income });
+      toast.success("Rendimento actualizado.");
+    }
+    setEditing(false);
+  };
+
+  return (
+    <div className="rounded-3xl bg-card p-5 shadow-soft">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background-soft text-foreground">
+            <Wallet size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Rendimento mensal</p>
+            {editing ? (
+              <input
+                autoFocus
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                className="mt-1 h-9 w-full rounded-xl border-[1.5px] border-accent bg-card px-3 text-[18px] font-display text-foreground outline-none"
+              />
+            ) : (
+              <p className="mt-0.5 font-display text-[20px] text-foreground">
+                {formatEUR(couple.monthIncome)}
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={editing ? handleSave : () => { setValue(String(couple.monthIncome || "")); setEditing(true); }}
+          className="shrink-0 rounded-xl bg-accent px-4 py-2 text-[13px] font-medium text-accent-foreground"
+        >
+          {editing ? "Guardar" : "Editar"}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -29,12 +90,24 @@ const Profile = () => {
   };
 
   const handleCopyInvite = async () => {
-    // Buscar o coupleId do utilizador actual
-    const { data: coupleData } = await supabase
-  .from("couples")
-  .select("id")
-  .eq("user1_id", userId)
-  .single();
+    let coupleData = null;
+
+    const { data: c1 } = await supabase
+      .from("couples")
+      .select("id")
+      .eq("user1_id", userId)
+      .maybeSingle();
+
+    if (c1) {
+      coupleData = c1;
+    } else {
+      const { data: c2 } = await supabase
+        .from("couples")
+        .select("id")
+        .eq("user2_id", userId)
+        .maybeSingle();
+      if (c2) coupleData = c2;
+    }
 
     if (!coupleData) {
       toast.error("Erro ao gerar link de convite.");
@@ -63,7 +136,6 @@ const Profile = () => {
         <h1 className="mt-1 font-display text-[26px] text-foreground">Perfil</h1>
       </header>
 
-      {/* Couple card */}
       <section className="px-6">
         <div className="rounded-3xl bg-card p-6 shadow-soft">
           <div className="flex items-center justify-center gap-4">
@@ -83,7 +155,6 @@ const Profile = () => {
         </div>
       </section>
 
-      {/* Convite — só aparece se o parceiro ainda não aceitou */}
       {partnerPending && (
         <section className="px-6 pt-4">
           <div className="rounded-3xl border border-accent/30 bg-accent/5 p-5">
@@ -107,7 +178,10 @@ const Profile = () => {
         </section>
       )}
 
-      {/* Subscription */}
+      <section className="px-6 pt-4">
+        <IncomeCard />
+      </section>
+
       <section className="px-6 pt-4">
         <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">
           <div className="flex items-center gap-3">
@@ -129,7 +203,6 @@ const Profile = () => {
         </div>
       </section>
 
-      {/* Actions */}
       <section className="px-6 pt-4 space-y-2">
         {!partnerPending && (
           <button
