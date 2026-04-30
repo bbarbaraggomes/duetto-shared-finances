@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppShell } from "@/components/duetto/AppShell";
 import { CATEGORIES, Category, PaidBy, Transaction, formatEUR, useDuetto } from "@/hooks/useDuettoData";
 import { useNavigate } from "react-router-dom";
-import { Plus, Trash2, X, Pencil } from "lucide-react";
+import { Plus, Trash2, X, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -20,14 +20,19 @@ const INCOME_CATEGORIES = [
 
 const ALL_CATEGORIES = [...CATEGORIES, ...INCOME_CATEGORIES];
 
+const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
 const Expenses = () => {
   const navigate = useNavigate();
   const { transactions, setTransactions, couple } = useDuetto();
 
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [mode, setMode] = useState<"actions" | "edit" | "delete">("actions");
 
-  // Estado de edição
   const [editAmount, setEditAmount] = useState("");
   const [editCategory, setEditCategory] = useState<string>("");
   const [editNote, setEditNote] = useState("");
@@ -35,16 +40,39 @@ const Expenses = () => {
   const [editDate, setEditDate] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const grouped = transactions.reduce<Record<string, typeof transactions>>((acc, t) => {
+  const prevMonth = () => {
+    if (selectedMonth === 0) { setSelectedMonth(11); setSelectedYear(y => y - 1); }
+    else setSelectedMonth(m => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (selectedMonth === 11) { setSelectedMonth(0); setSelectedYear(y => y + 1); }
+    else setSelectedMonth(m => m + 1);
+  };
+
+  const isCurrentMonth = selectedMonth === now.getMonth() && selectedYear === now.getFullYear();
+
+  const filteredTransactions = useMemo(() =>
+    transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    }),
+    [transactions, selectedMonth, selectedYear]
+  );
+
+  const monthTotal = useMemo(() => {
+    const income = filteredTransactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+    const expense = filteredTransactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+    return { income, expense, balance: income - expense };
+  }, [filteredTransactions]);
+
+  const grouped = filteredTransactions.reduce<Record<string, typeof transactions>>((acc, t) => {
     const d = new Date(t.date).toLocaleDateString("pt-PT", { day: "2-digit", month: "long" });
     (acc[d] ||= []).push(t);
     return acc;
   }, {});
 
-  const openActions = (t: Transaction) => {
-    setSelected(t);
-    setMode("actions");
-  };
+  const openActions = (t: Transaction) => { setSelected(t); setMode("actions"); };
 
   const openEdit = () => {
     if (!selected) return;
@@ -59,32 +87,20 @@ const Expenses = () => {
   const handleSave = async () => {
     if (!selected) return;
     const amount = parseFloat(editAmount.replace(",", "."));
-    if (!amount || amount <= 0) {
-      toast.error("Indique um valor válido.");
-      return;
-    }
+    if (!amount || amount <= 0) { toast.error("Indique um valor válido."); return; }
     setSaving(true);
-
     const { error } = await supabase.from("transactions").update({
       amount,
       category: editCategory,
       description: editNote || null,
-      user_id: editPaidBy === "me" ? (couple.me as any).id : (couple.partner as any).id,
       date: editDate,
     }).eq("id", selected.id);
-
-    if (error) {
-      toast.error("Erro ao guardar.");
-      setSaving(false);
-      return;
-    }
-
+    if (error) { toast.error("Erro ao guardar."); setSaving(false); return; }
     setTransactions((prev) => prev.map((t) =>
       t.id === selected.id
         ? { ...t, amount, category: editCategory as Category, note: editNote || undefined, paidBy: editPaidBy, date: editDate }
         : t
     ));
-
     toast.success("Transação actualizada.");
     setSaving(false);
     setSelected(null);
@@ -93,10 +109,7 @@ const Expenses = () => {
   const handleDelete = async () => {
     if (!selected) return;
     const { error } = await supabase.from("transactions").delete().eq("id", selected.id);
-    if (error) {
-      toast.error("Erro ao apagar.");
-      return;
-    }
+    if (error) { toast.error("Erro ao apagar."); return; }
     setTransactions((prev) => prev.filter((t) => t.id !== selected.id));
     toast.success("Transação apagada.");
     setSelected(null);
@@ -111,12 +124,52 @@ const Expenses = () => {
         <h1 className="mt-1 font-display text-[26px] text-foreground">Transações</h1>
       </header>
 
+      {/* Navegação de mês */}
+      <div className="px-6 mb-4">
+        <div className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 shadow-soft">
+          <button onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded-xl bg-background-soft">
+            <ChevronLeft size={18} />
+          </button>
+          <div className="text-center">
+            <p className="font-display text-[18px] text-foreground">{MONTHS_PT[selectedMonth]}</p>
+            <p className="text-[12px] text-muted-foreground">{selectedYear}</p>
+          </div>
+          <button
+            onClick={nextMonth}
+            disabled={isCurrentMonth}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-background-soft disabled:opacity-30"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        {/* Resumo do mês */}
+        {filteredTransactions.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-soft">
+              <p className="text-[11px] text-muted-foreground">Receitas</p>
+              <p className="mt-0.5 text-[14px] font-semibold text-green-600">{formatEUR(monthTotal.income)}</p>
+            </div>
+            <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-soft">
+              <p className="text-[11px] text-muted-foreground">Despesas</p>
+              <p className="mt-0.5 text-[14px] font-semibold text-foreground">{formatEUR(monthTotal.expense)}</p>
+            </div>
+            <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-soft">
+              <p className="text-[11px] text-muted-foreground">Saldo</p>
+              <p className={cn("mt-0.5 text-[14px] font-semibold", monthTotal.balance >= 0 ? "text-green-600" : "text-destructive")}>
+                {formatEUR(monthTotal.balance)}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="px-6 pb-32">
         {Object.keys(grouped).length === 0 && (
           <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-border bg-card/60 px-6 py-12 text-center">
             <span className="text-5xl">💸</span>
             <p className="mt-4 text-[15px] text-muted-foreground">
-              Ainda não há transações registadas.
+              Sem transações em {MONTHS_PT[selectedMonth]}.
             </p>
           </div>
         )}
@@ -178,10 +231,7 @@ const Expenses = () => {
               {formatEUR(selected.amount)} · {new Date(selected.date).toLocaleDateString("pt-PT", { day: "numeric", month: "long" })}
             </p>
             <div className="space-y-2">
-              <button
-                onClick={openEdit}
-                className="flex w-full items-center gap-3 rounded-2xl bg-background-soft px-4 py-4 text-left transition-colors hover:bg-border"
-              >
+              <button onClick={openEdit} className="flex w-full items-center gap-3 rounded-2xl bg-background-soft px-4 py-4 text-left transition-colors hover:bg-border">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card text-foreground">
                   <Pencil size={17} />
                 </div>
@@ -190,10 +240,7 @@ const Expenses = () => {
                   <p className="text-[12px] text-muted-foreground">Corrigir valor, categoria ou nota</p>
                 </div>
               </button>
-              <button
-                onClick={() => setMode("delete")}
-                className="flex w-full items-center gap-3 rounded-2xl bg-destructive/10 px-4 py-4 text-left transition-colors hover:bg-destructive/20"
-              >
+              <button onClick={() => setMode("delete")} className="flex w-full items-center gap-3 rounded-2xl bg-destructive/10 px-4 py-4 text-left transition-colors hover:bg-destructive/20">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/15 text-destructive">
                   <Trash2 size={18} />
                 </div>
@@ -217,57 +264,33 @@ const Expenses = () => {
                 <X size={16} />
               </button>
             </div>
-
             <div className="space-y-4">
-              {/* Valor */}
               <div>
                 <p className="mb-2 text-[12px] uppercase tracking-wide text-muted-foreground">Valor (€)</p>
-                <input
-                  type="number"
-                  value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  className="h-14 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[18px] font-display text-foreground outline-none focus:border-accent"
-                />
+                <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)}
+                  className="h-14 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[18px] font-display text-foreground outline-none focus:border-accent" />
               </div>
-
-              {/* Categoria */}
               <div>
                 <p className="mb-2 text-[12px] uppercase tracking-wide text-muted-foreground">Categoria</p>
                 <div className="grid grid-cols-4 gap-2">
                   {activeCategories.map((c) => {
                     const active = editCategory === c.id;
                     return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setEditCategory(c.id)}
-                        className={cn(
-                          "flex flex-col items-center gap-1 rounded-2xl border-[1.5px] bg-card px-1 py-3 transition-all",
-                          active ? "border-accent shadow-gold" : "border-border",
-                        )}
-                      >
+                      <button key={c.id} type="button" onClick={() => setEditCategory(c.id)}
+                        className={cn("flex flex-col items-center gap-1 rounded-2xl border-[1.5px] bg-card px-1 py-3 transition-all",
+                          active ? "border-accent shadow-gold" : "border-border")}>
                         <span className="text-xl">{c.emoji}</span>
-                        <span className={cn("text-[10px]", active ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                          {c.label}
-                        </span>
+                        <span className={cn("text-[10px]", active ? "font-semibold text-foreground" : "text-muted-foreground")}>{c.label}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Nota */}
               <div>
                 <p className="mb-2 text-[12px] uppercase tracking-wide text-muted-foreground">Nota (opcional)</p>
-                <input
-                  type="text"
-                  value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
-                  className="h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[15px] text-foreground outline-none focus:border-accent"
-                />
+                <input type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)}
+                  className="h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[15px] text-foreground outline-none focus:border-accent" />
               </div>
-
-              {/* Pago por */}
               <div>
                 <p className="mb-2 text-[12px] uppercase tracking-wide text-muted-foreground">
                   {selected.type === "income" ? "Recebido por" : "Pago por"}
@@ -275,40 +298,23 @@ const Expenses = () => {
                 <div className="grid grid-cols-2 gap-2 rounded-2xl bg-background-soft p-1">
                   {(["me", "partner"] as PaidBy[]).map((p) => {
                     const active = editPaidBy === p;
-                    const label = p === "me" ? couple.me.name : couple.partner.name;
                     return (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setEditPaidBy(p)}
-                        className={cn(
-                          "rounded-xl py-2.5 text-[14px] font-medium transition-all",
-                          active ? "bg-card text-foreground shadow-soft" : "text-muted-foreground",
-                        )}
-                      >
-                        {label}
+                      <button key={p} type="button" onClick={() => setEditPaidBy(p)}
+                        className={cn("rounded-xl py-2.5 text-[14px] font-medium transition-all",
+                          active ? "bg-card text-foreground shadow-soft" : "text-muted-foreground")}>
+                        {p === "me" ? couple.me.name : couple.partner.name}
                       </button>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Data */}
               <div>
                 <p className="mb-2 text-[12px] uppercase tracking-wide text-muted-foreground">Data</p>
-                <input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[15px] text-foreground outline-none focus:border-accent"
-                />
+                <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                  className="h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[15px] text-foreground outline-none focus:border-accent" />
               </div>
-
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="mt-2 w-full rounded-2xl bg-primary py-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-60"
-              >
+              <button onClick={handleSave} disabled={saving}
+                className="mt-2 w-full rounded-2xl bg-primary py-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-60">
                 {saving ? "A guardar..." : "Guardar alterações"}
               </button>
             </div>
@@ -325,18 +331,8 @@ const Expenses = () => {
               Vais apagar <strong>{selected.note || ALL_CATEGORIES.find(c => c.id === selected.category)?.label}</strong> de {formatEUR(selected.amount)}. Esta acção não pode ser desfeita.
             </p>
             <div className="mt-5 flex gap-2">
-              <button
-                onClick={() => setMode("actions")}
-                className="flex-1 rounded-2xl bg-background-soft py-3 text-[14px] font-medium text-foreground"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 rounded-2xl bg-destructive py-3 text-[14px] font-semibold text-destructive-foreground"
-              >
-                Apagar
-              </button>
+              <button onClick={() => setMode("actions")} className="flex-1 rounded-2xl bg-background-soft py-3 text-[14px] font-medium text-foreground">Cancelar</button>
+              <button onClick={handleDelete} className="flex-1 rounded-2xl bg-destructive py-3 text-[14px] font-semibold text-destructive-foreground">Apagar</button>
             </div>
           </div>
         </div>
