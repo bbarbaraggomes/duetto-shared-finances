@@ -49,6 +49,7 @@ interface Ctx {
   couple: Couple;
   setCouple: (c: Couple) => void;
   transactions: Transaction[];
+  setTransactions: (t: Transaction[]) => void;
   addTransaction: (t: Omit<Transaction, "id">) => void;
   goals: Goal[];
   addGoal: (g: Omit<Goal, "id" | "current">) => void;
@@ -256,7 +257,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value = useMemo<Ctx>(
-    () => ({ couple, setCouple, transactions, addTransaction, goals, addGoal, loading, userId }),
+    () => ({ couple, setCouple, transactions, setTransactions, addTransaction, goals, addGoal, loading, userId }),
     [couple, transactions, goals, loading, userId, coupleId]
   );
 
