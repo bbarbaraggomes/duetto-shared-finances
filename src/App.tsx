@@ -24,7 +24,6 @@ const AuthCallback = () => {
 
   useEffect(() => {
     const hash = window.location.hash;
-    console.log("AuthCallback hash:", hash.substring(0, 50));
 
     const processJoin = async (userId: string) => {
       const joinId = joinCoupleId || localStorage.getItem("duetto_join_couple");
@@ -38,7 +37,6 @@ const AuthCallback = () => {
       if (error) {
         console.error("Erro ao ligar ao casal:", error);
       } else {
-        console.log("✅ Parceiro ligado ao casal:", joinId);
         localStorage.removeItem("duetto_join_couple");
       }
     };
@@ -53,18 +51,16 @@ const AuthCallback = () => {
           access_token: accessToken,
           refresh_token: refreshToken,
         }).then(async ({ data, error }) => {
-          console.log("setSession resultado:", data?.session?.user?.id, error);
           if (data?.session?.user) {
             await processJoin(data.session.user.id);
             navigate("/dashboard", { replace: true });
           } else {
-            navigate("/", { replace: true });
+            navigate("/login", { replace: true });
           }
         });
       }
     } else {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log("AuthCallback event:", event, session?.user?.id);
         if (event === "SIGNED_IN" && session?.user) {
           await processJoin(session.user.id);
           subscription.unsubscribe();
@@ -74,7 +70,7 @@ const AuthCallback = () => {
 
       setTimeout(() => {
         subscription.unsubscribe();
-        navigate("/", { replace: true });
+        navigate("/login", { replace: true });
       }, 5000);
     }
   }, []);
@@ -94,8 +90,9 @@ const App = () => (
       <DuettoProvider>
         <BrowserRouter>
           <Routes>
-          <Route path="/login" element={<Index />} />
-          <Route path="/app" element={<Index />} />
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Index />} />
+            <Route path="/app" element={<Index />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/add-expense" element={<AddExpense />} />
