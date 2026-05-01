@@ -1,6 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/landing.html" },
-    { "source": "/((?!landing|assets|icons|manifest|favicon).*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/", "dest": "/landing.html" },
+    { "src": "/landing.html", "dest": "/landing.html" },
+    { "src": "/(.*\\.(js|css|png|jpg|jpeg|svg|ico|json|woff|woff2|ttf))", "dest": "/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
