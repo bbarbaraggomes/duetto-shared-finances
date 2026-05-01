@@ -1,5 +1,9 @@
 {
-    "rewrites": [
-      { "source": "/(.*)", "destination": "/index.html" }
-    ]
-  }
+  "rewrites": [
+    { "source": "/landing", "destination": "/landing.html" },
+    { "source": "/((?!api|_next|.*\\..*).*)", "destination": "/index.html" }
+  ],
+  "routes": [
+    { "src": "/", "dest": "/landing.html" }
+  ]
+}
