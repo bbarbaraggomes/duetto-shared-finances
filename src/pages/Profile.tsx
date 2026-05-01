@@ -30,19 +30,22 @@ const Profile = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success("Sessão terminada.");
-    navigate("/");
+    navigate("/login");
   };
 
   const handleCopyInvite = async () => {
-    let coupleData = null;
-    const { data: c1 } = await supabase.from("couples").select("id").eq("user1_id", userId).maybeSingle();
-    if (c1) {
-      coupleData = c1;
-    } else {
-      const { data: c2 } = await supabase.from("couples").select("id").eq("user2_id", userId).maybeSingle();
-      if (c2) coupleData = c2;
+    const { data: coupleData, error } = await supabase
+      .from("couples")
+      .select("id")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !coupleData) {
+      toast.error("Erro ao gerar link de convite.");
+      return;
     }
-    if (!coupleData) { toast.error("Erro ao gerar link de convite."); return; }
+
     const inviteLink = `${window.location.origin}/register?invite=${coupleData.id}`;
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
