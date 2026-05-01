@@ -36,24 +36,49 @@ const Register = () => {
     }
     setSubmitting(true);
 
+    // Se tem convite, liga directamente via email/password
+    if (inviteId) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
+
+      if (error) { toast.error(error.message); setSubmitting(false); return; }
+
+      const uid = data.user?.id;
+      if (!uid) { toast.error("Erro ao criar conta."); setSubmitting(false); return; }
+
+      await supabase.from("users").upsert({ id: uid, email, full_name: name });
+
+      const { error: coupleError } = await supabase
+        .from("couples")
+        .update({ user2_id: uid, status: "active" })
+        .eq("id", inviteId);
+
+      if (coupleError) {
+        toast.error("Erro ao ligar ao casal.");
+        setSubmitting(false);
+        return;
+      }
+
+      toast.success("Conta criada! Bem-vindo(a) ao Duetto.");
+      setSubmitting(false);
+      navigate("/dashboard");
+      return;
+    }
+
+    // Registo normal sem convite
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
     });
 
-    if (error) {
-      toast.error(error.message);
-      setSubmitting(false);
-      return;
-    }
+    if (error) { toast.error(error.message); setSubmitting(false); return; }
 
     const uid = data.user?.id;
-    if (!uid) {
-      toast.error("Erro ao criar conta. Tente novamente.");
-      setSubmitting(false);
-      return;
-    }
+    if (!uid) { toast.error("Erro ao criar conta. Tente novamente."); setSubmitting(false); return; }
 
     await supabase.from("users").upsert({ id: uid, email, full_name: name });
 
@@ -74,10 +99,7 @@ const Register = () => {
 
   const handleInvite = async (e: FormEvent) => {
     e.preventDefault();
-    if (!partnerEmail) {
-      toast.error("Indique o email do(a) parceiro(a).");
-      return;
-    }
+    if (!partnerEmail) { toast.error("Indique o email do(a) parceiro(a)."); return; }
     setSubmitting(true);
 
     if (coupleId) {
@@ -118,7 +140,7 @@ const Register = () => {
             style={{ background: "hsl(var(--accent) / 0.3)" }}
           />
           <Link
-            to="/"
+            to="/login"
             className="absolute left-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-card/70 text-foreground shadow-soft"
             aria-label="Voltar"
           >
@@ -141,10 +163,23 @@ const Register = () => {
                 Junta-te ao Duetto
               </h2>
               <p className="mt-3 text-center text-[14px] text-muted-foreground">
-                O teu parceiro(a) convidou-te para gerir as finanças a dois. Entra com o Google para aceitar.
+                O teu parceiro(a) convidou-te. Entra com Google ou cria uma conta com email.
               </p>
-              <div className="mt-8">
+              <div className="mt-8 space-y-4">
                 <GoogleSignInButton onClick={handleGoogleJoin} loading={googleLoading} disabled={googleLoading} />
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[13px] text-muted-foreground">ou</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <form onSubmit={handleRegister} className="space-y-3">
+                  <AuthInput label="O seu nome" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" />
+                  <AuthInput label="O seu email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+                  <AuthInput label="Palavra-passe" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+                  <div className="pt-2">
+                    <PrimaryButton type="submit" loading={submitting}>Aceitar convite</PrimaryButton>
+                  </div>
+                </form>
               </div>
             </>
           )}
@@ -163,7 +198,7 @@ const Register = () => {
                   <PrimaryButton type="submit" loading={submitting}>Continuar</PrimaryButton>
                 </div>
               </form>
-              <Link to="/" className="mt-6 block w-full text-center text-[14px] text-muted-foreground">
+              <Link to="/login" className="mt-6 block w-full text-center text-[14px] text-muted-foreground">
                 Já tem conta? <span className="font-semibold text-accent">Entrar →</span>
               </Link>
             </>
