@@ -1,6 +1,6 @@
 {
-  "routes": [
-    { "src": "/", "dest": "/landing.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/", "destination": "/landing.html" },
+    { "source": "/((?!landing|assets|icons|manifest|favicon).*)", "destination": "/index.html" }
   ]
 }
