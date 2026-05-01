@@ -1,8 +1,6 @@
 {
-  "routes": [
-    { "src": "/", "dest": "/landing.html" },
-    { "src": "/landing.html", "dest": "/landing.html" },
-    { "src": "/(assets|icons|manifest\\.json|favicon\\.ico)(.*)", "dest": "/$1$2" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/", "destination": "/landing.html" },
+    { "source": "/((?!assets|icons|manifest.json|favicon.ico|placeholder.svg|robots.txt|landing.html).*)", "destination": "/index.html" }
   ]
 }
