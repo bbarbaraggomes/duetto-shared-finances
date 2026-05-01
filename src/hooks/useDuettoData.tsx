@@ -86,11 +86,11 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       .from("users").select("*").eq("id", uid).maybeSingle();
 
     if (!profile) {
-      await supabase.from("users").insert({
+      await supabase.from("users").upsert({
         id: uid,
         email,
         full_name: metadata?.full_name || email?.split("@")[0],
-      });
+      }, { onConflict: "id", ignoreDuplicates: true });
     }
 
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
