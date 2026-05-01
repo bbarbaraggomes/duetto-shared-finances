@@ -2,7 +2,7 @@
   "routes": [
     { "src": "/", "dest": "/landing.html" },
     { "src": "/landing.html", "dest": "/landing.html" },
-    { "src": "/(.*\\.(js|css|png|jpg|jpeg|svg|ico|json|woff|woff2|ttf))", "dest": "/$1" },
+    { "src": "/(assets|icons|manifest\\.json|favicon\\.ico)(.*)", "dest": "/$1$2" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
