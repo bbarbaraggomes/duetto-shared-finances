@@ -94,7 +94,8 @@ const App = () => (
       <DuettoProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+          <Route path="/login" element={<Index />} />
+          <Route path="/app" element={<Index />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/add-expense" element={<AddExpense />} />
