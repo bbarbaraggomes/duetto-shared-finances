@@ -29,14 +29,30 @@ const AuthCallback = () => {
       const joinId = joinCoupleId || localStorage.getItem("duetto_join_couple");
       if (!joinId) return;
 
+      // Verifica se o utilizador já tem casal
+      const { data: existingCouple } = await supabase
+        .from("couples")
+        .select("id")
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+        .maybeSingle();
+
+      if (existingCouple) {
+        // Já tem casal — não faz nada
+        localStorage.removeItem("duetto_join_couple");
+        return;
+      }
+
+      // Liga ao casal do convite
       const { error } = await supabase
         .from("couples")
         .update({ user2_id: userId, status: "active" })
-        .eq("id", joinId);
+        .eq("id", joinId)
+        .is("user2_id", null); // só actualiza se ainda não tem parceiro
 
       if (error) {
         console.error("Erro ao ligar ao casal:", error);
       } else {
+        console.log("✅ Parceiro ligado ao casal:", joinId);
         localStorage.removeItem("duetto_join_couple");
       }
     };
@@ -88,25 +104,4 @@ const App = () => (
       <Toaster />
       <Sonner />
       <DuettoProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Index />} />
-            <Route path="/app" element={<Index />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/add-expense" element={<AddExpense />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/goals" element={<Goals />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/~oauth/initiate" element={<AuthCallback />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </DuettoProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
-
-export default App;
+        <BrowserRouter></BrowserRouter>
