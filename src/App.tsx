@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,17 +19,15 @@ const queryClient = new QueryClient();
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const joinCoupleId = searchParams.get("join");
 
   useEffect(() => {
     const hash = window.location.hash;
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinId = urlParams.get("state") || localStorage.getItem("duetto_join_couple");
 
     const processJoin = async (userId: string) => {
-      const joinId = joinCoupleId || localStorage.getItem("duetto_join_couple");
       if (!joinId) return;
 
-      // Verifica se o utilizador já tem casal
       const { data: existingCouple } = await supabase
         .from("couples")
         .select("id")
@@ -37,17 +35,15 @@ const AuthCallback = () => {
         .maybeSingle();
 
       if (existingCouple) {
-        // Já tem casal — não faz nada
         localStorage.removeItem("duetto_join_couple");
         return;
       }
 
-      // Liga ao casal do convite
       const { error } = await supabase
         .from("couples")
         .update({ user2_id: userId, status: "active" })
         .eq("id", joinId)
-        .is("user2_id", null); // só actualiza se ainda não tem parceiro
+        .is("user2_id", null);
 
       if (error) {
         console.error("Erro ao ligar ao casal:", error);
@@ -66,7 +62,7 @@ const AuthCallback = () => {
         supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
-        }).then(async ({ data, error }) => {
+        }).then(async ({ data }) => {
           if (data?.session?.user) {
             await processJoin(data.session.user.id);
             navigate("/dashboard", { replace: true });
@@ -104,4 +100,25 @@ const App = () => (
       <Toaster />
       <Sonner />
       <DuettoProvider>
-        <BrowserRouter></BrowserRouter>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Index />} />
+            <Route path="/app" element={<Index />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/add-expense" element={<AddExpense />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/~oauth/initiate" element={<AuthCallback />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </DuettoProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

@@ -36,7 +36,6 @@ const Register = () => {
     }
     setSubmitting(true);
 
-    // Se tem convite, liga directamente via email/password
     if (inviteId) {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -49,12 +48,15 @@ const Register = () => {
       const uid = data.user?.id;
       if (!uid) { toast.error("Erro ao criar conta."); setSubmitting(false); return; }
 
-      await supabase.from("users").upsert({ id: uid, email, full_name: name });
+      await supabase.from("users").upsert({
+        id: uid, email, full_name: name
+      }, { onConflict: "id", ignoreDuplicates: true });
 
       const { error: coupleError } = await supabase
         .from("couples")
         .update({ user2_id: uid, status: "active" })
-        .eq("id", inviteId);
+        .eq("id", inviteId)
+        .is("user2_id", null);
 
       if (coupleError) {
         toast.error("Erro ao ligar ao casal.");
@@ -68,7 +70,6 @@ const Register = () => {
       return;
     }
 
-    // Registo normal sem convite
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -80,7 +81,9 @@ const Register = () => {
     const uid = data.user?.id;
     if (!uid) { toast.error("Erro ao criar conta. Tente novamente."); setSubmitting(false); return; }
 
-    await supabase.from("users").upsert({ id: uid, email, full_name: name });
+    await supabase.from("users").upsert({
+      id: uid, email, full_name: name
+    }, { onConflict: "id", ignoreDuplicates: true });
 
     const { data: newCouple } = await supabase
       .from("couples")
@@ -122,6 +125,9 @@ const Register = () => {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          state: inviteId || "",
+        },
       },
     });
     if (error) {
