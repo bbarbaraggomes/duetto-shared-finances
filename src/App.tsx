@@ -79,7 +79,7 @@ const AuthCallback = () => {
           const user = data?.session?.user;
           if (user) {
             await processAuth(user.id, user.email || "", user.user_metadata);
-            navigate("/dashboard", { replace: true });
+            navigate("/dashboard?reload=1", { replace: true });
           } else {
             navigate("/login", { replace: true });
           }
@@ -98,7 +98,7 @@ const AuthCallback = () => {
           const user = session.user;
           await processAuth(user.id, user.email || "", user.user_metadata);
           subscription.unsubscribe();
-          navigate("/dashboard", { replace: true });
+          navigate("/dashboard?reload=1", { replace: true });
         }
       });
     };
@@ -142,3 +142,4 @@ const App = () => (
 );
 
 export default App;
+
