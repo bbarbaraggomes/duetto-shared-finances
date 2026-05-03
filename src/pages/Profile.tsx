@@ -26,6 +26,9 @@ const Profile = () => {
   const [copied, setCopied] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<"monthly" | "yearly" | null>(null);
+  const [showInviteInput, setShowInviteInput] = useState(false);
+  const [partnerEmail, setPartnerEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -34,9 +37,10 @@ const Profile = () => {
   };
 
   const handleCopyInvite = async () => {
+    // Busca o casal
     const { data: coupleData, error } = await supabase
       .from("couples")
-      .select("id")
+      .select("id, invite_email")
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .limit(1)
       .maybeSingle();
@@ -46,10 +50,54 @@ const Profile = () => {
       return;
     }
 
+    // Se ainda não tem email do parceiro guardado, mostra o input
+    if (!coupleData.invite_email && !partnerEmail) {
+      setShowInviteInput(true);
+      return;
+    }
+
+    // Copia o link
     const inviteLink = `${window.location.origin}/register?invite=${coupleData.id}`;
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     toast.success("Link copiado!");
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleSavePartnerEmail = async () => {
+    if (!partnerEmail || !partnerEmail.includes("@")) {
+      toast.error("Introduz um email válido.");
+      return;
+    }
+    setSavingEmail(true);
+
+    const { data: coupleData } = await supabase
+      .from("couples")
+      .select("id")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (!coupleData) {
+      toast.error("Erro ao encontrar o casal.");
+      setSavingEmail(false);
+      return;
+    }
+
+    // Guarda o email do parceiro — o trigger vai usar isto para ligar automaticamente
+    await supabase
+      .from("couples")
+      .update({ invite_email: partnerEmail.toLowerCase().trim() })
+      .eq("id", coupleData.id);
+
+    // Copia o link
+    const inviteLink = `${window.location.origin}/register?invite=${coupleData.id}`;
+    await navigator.clipboard.writeText(inviteLink);
+
+    setSavingEmail(false);
+    setShowInviteInput(false);
+    setCopied(true);
+    toast.success("Link copiado! Partilha com o(a) teu(tua) parceiro(a).");
     setTimeout(() => setCopied(false), 3000);
   };
 
@@ -104,7 +152,7 @@ const Profile = () => {
       .limit(1);
     const coupleData = couples?.[0];
     if (!coupleData) { toast.error("Erro ao encontrar o casal."); setUnlinking(false); return; }
-    await supabase.from("couples").update({ user2_id: null, status: "pending" }).eq("id", coupleData.id);
+    await supabase.from("couples").update({ user2_id: null, status: "pending", invite_email: null }).eq("id", coupleData.id);
     setCouple({ ...couple, partner: { name: "", email: "", pending: true } });
     setUnlinking(false);
     setConfirmUnlink(false);
@@ -154,16 +202,45 @@ const Profile = () => {
               </div>
               <div className="flex-1">
                 <p className="text-[14px] font-medium text-foreground">Convida o(a) teu(tua) parceiro(a)</p>
-                <p className="text-[12px] text-muted-foreground">Copia o link e partilha com ele(a)</p>
+                <p className="text-[12px] text-muted-foreground">Partilha o link e ele(a) entra automaticamente</p>
               </div>
             </div>
-            <button
-              onClick={handleCopyInvite}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-[14px] font-medium text-accent-foreground transition-opacity hover:opacity-90"
-            >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? "Link copiado!" : "Copiar link de convite"}
-            </button>
+
+            {showInviteInput ? (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-[12px] text-muted-foreground mb-1">Email do(a) parceiro(a)</p>
+                  <input
+                    type="email"
+                    value={partnerEmail}
+                    onChange={(e) => setPartnerEmail(e.target.value)}
+                    placeholder="email@exemplo.com"
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-[14px] text-foreground outline-none focus:border-accent"
+                  />
+                </div>
+                <button
+                  onClick={handleSavePartnerEmail}
+                  disabled={savingEmail}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-[14px] font-medium text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {savingEmail ? "A guardar..." : "Guardar e copiar link"}
+                </button>
+                <button
+                  onClick={() => setShowInviteInput(false)}
+                  className="w-full text-center text-[13px] text-muted-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleCopyInvite}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-[14px] font-medium text-accent-foreground transition-opacity hover:opacity-90"
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? "Link copiado!" : "Copiar link de convite"}
+              </button>
+            )}
           </div>
         </section>
       )}
