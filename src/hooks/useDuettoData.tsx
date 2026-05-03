@@ -218,6 +218,12 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let loaded = false;
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceReload = urlParams.get("reload") === "1";
+    if (forceReload) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user && !loaded) {
         loaded = true;
@@ -307,5 +313,6 @@ export const useDuetto = () => {
 
 export const formatEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
+
 
 
