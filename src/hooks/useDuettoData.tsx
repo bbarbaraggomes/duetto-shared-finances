@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
+﻿import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type Category =
@@ -8,14 +8,14 @@ export type Category =
   | "presente" | "reembolso" | "bonus" | "outro";
 
 export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
-  { id: "casa", label: "Casa", emoji: "🏠" },
-  { id: "mercado", label: "Mercado", emoji: "🛒" },
-  { id: "restaurante", label: "Restaurante", emoji: "🍽️" },
-  { id: "transporte", label: "Transporte", emoji: "🚗" },
-  { id: "saude", label: "Saúde", emoji: "💊" },
-  { id: "lazer", label: "Lazer", emoji: "🎬" },
-  { id: "viagem", label: "Viagem", emoji: "✈️" },
-  { id: "outros", label: "Outros", emoji: "📦" },
+  { id: "casa", label: "Casa", emoji: "ðŸ " },
+  { id: "mercado", label: "Mercado", emoji: "ðŸ›’" },
+  { id: "restaurante", label: "Restaurante", emoji: "ðŸ½ï¸" },
+  { id: "transporte", label: "Transporte", emoji: "ðŸš—" },
+  { id: "saude", label: "SaÃºde", emoji: "ðŸ’Š" },
+  { id: "lazer", label: "Lazer", emoji: "ðŸŽ¬" },
+  { id: "viagem", label: "Viagem", emoji: "âœˆï¸" },
+  { id: "outros", label: "Outros", emoji: "ðŸ“¦" },
 ];
 
 export type PaidBy = "me" | "partner";
@@ -86,7 +86,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
       .maybeSingle();
 
-    if (existing) return; // já tem casal
+    if (existing) return; // jÃ¡ tem casal
 
     const { data: newCouple } = await supabase
       .from("couples")
@@ -121,10 +121,10 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
     const myEmail = email || "";
 
-    // Se há um convite pendente, aguarda o AuthCallback terminar (máx 3s)
+    // Se hÃ¡ um convite pendente, aguarda o AuthCallback terminar (mÃ¡x 3s)
     const pendingJoin = localStorage.getItem("duetto_join_couple");
     if (pendingJoin) {
-      console.log("⏳ Convite pendente detectado, aguarda AuthCallback...");
+      console.log("â³ Convite pendente detectado, aguarda AuthCallback...");
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
@@ -195,16 +195,16 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         setGoals(goalsData.map((g) => ({
           id: g.id,
           name: g.name,
-          emoji: g.emoji || "🎯",
+          emoji: g.emoji || "ðŸŽ¯",
           target: Number(g.target_amount),
           current: Number(g.current_amount),
           deadline: g.deadline || "",
         })));
       }
     } else {
-      // Sem casal — o Register.tsx vai chamar createCouple() se necessário
-      // O loadData NÃO cria casal aqui para evitar conflitos com o fluxo de convite
-      console.log("ℹ️ Sem casal encontrado para", uid);
+      // Sem casal â€” o Register.tsx vai chamar createCouple() se necessÃ¡rio
+      // O loadData NÃƒO cria casal aqui para evitar conflitos com o fluxo de convite
+      console.log("â„¹ï¸ Sem casal encontrado para", uid);
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: "", email: "", pending: true },
@@ -246,7 +246,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     });
 
     // Se estamos no AuthCallback, nao carrega dados - evita race condition
-    if (window.location.pathname === "/auth/callback") {
+    if (window.location.pathname.includes("auth/callback") || window.location.pathname.includes("oauth")) {
       console.log("DuettoProvider suspenso - AuthCallback em curso");
       setLoading(false);
       return;
@@ -272,7 +272,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       description: t.note,
       date: t.date.split("T")[0],
     });
-    if (error) console.error("❌ Erro transactions:", error);
+    if (error) console.error("âŒ Erro transactions:", error);
   };
 
   const addGoal = async (g: Omit<Goal, "id" | "current">) => {
@@ -288,7 +288,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       target_amount: g.target,
       deadline: g.deadline,
     });
-    if (error) console.error("❌ Erro goals:", error);
+    if (error) console.error("âŒ Erro goals:", error);
   };
 
   const value = useMemo<Ctx>(
@@ -307,4 +307,5 @@ export const useDuetto = () => {
 
 export const formatEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
+
 
