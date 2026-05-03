@@ -25,8 +25,15 @@ const AuthCallback = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const joinId = urlParams.get("state") || localStorage.getItem("duetto_join_couple");
 
+    console.log("🔍 AuthCallback URL:", window.location.href);
+    console.log("🔍 joinId:", joinId);
+    console.log("🔍 localStorage:", localStorage.getItem("duetto_join_couple"));
+
     const processJoin = async (userId: string) => {
-      if (!joinId) return;
+      if (!joinId) {
+        console.log("⚠️ Sem joinId — não liga ao casal");
+        return;
+      }
 
       const { data: existingCouple } = await supabase
         .from("couples")
@@ -35,10 +42,12 @@ const AuthCallback = () => {
         .maybeSingle();
 
       if (existingCouple) {
+        console.log("ℹ️ Utilizador já tem casal:", existingCouple.id);
         localStorage.removeItem("duetto_join_couple");
         return;
       }
 
+      console.log("🔗 A ligar ao casal:", joinId);
       const { error } = await supabase
         .from("couples")
         .update({ user2_id: userId, status: "active" })
@@ -46,7 +55,7 @@ const AuthCallback = () => {
         .is("user2_id", null);
 
       if (error) {
-        console.error("Erro ao ligar ao casal:", error);
+        console.error("❌ Erro ao ligar ao casal:", error);
       } else {
         console.log("✅ Parceiro ligado ao casal:", joinId);
         localStorage.removeItem("duetto_join_couple");
@@ -63,6 +72,7 @@ const AuthCallback = () => {
           access_token: accessToken,
           refresh_token: refreshToken,
         }).then(async ({ data }) => {
+          console.log("🔑 Session user:", data?.session?.user?.id);
           if (data?.session?.user) {
             await processJoin(data.session.user.id);
             navigate("/dashboard", { replace: true });
@@ -73,6 +83,7 @@ const AuthCallback = () => {
       }
     } else {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log("🔄 AuthCallback event:", event, session?.user?.id);
         if (event === "SIGNED_IN" && session?.user) {
           await processJoin(session.user.id);
           subscription.unsubscribe();
