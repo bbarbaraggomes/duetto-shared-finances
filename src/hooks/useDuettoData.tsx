@@ -1,25 +1,25 @@
 ﻿import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
+ 
 export type Category =
   | "casa" | "mercado" | "restaurante" | "transporte"
   | "saude" | "lazer" | "viagem" | "outros"
   | "trabalho" | "renda" | "freelance" | "investimento"
   | "presente" | "reembolso" | "bonus" | "outro";
-
-  export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
-    { id: "casa", label: "Casa", emoji: "🏠" },
-    { id: "mercado", label: "Mercado", emoji: "🛒" },
-    { id: "restaurante", label: "Restaurante", emoji: "🍽️" },
-    { id: "transporte", label: "Transporte", emoji: "🚗" },
-    { id: "saude", label: "Saúde", emoji: "💊" },
-    { id: "lazer", label: "Lazer", emoji: "🎬" },
-    { id: "viagem", label: "Viagem", emoji: "✈️" },
-    { id: "outros", label: "Outros", emoji: "📦" },
-  ];
-
+ 
+export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
+  { id: "casa", label: "Casa", emoji: "🏠" },
+  { id: "mercado", label: "Mercado", emoji: "🛒" },
+  { id: "restaurante", label: "Restaurante", emoji: "🍽️" },
+  { id: "transporte", label: "Transporte", emoji: "🚗" },
+  { id: "saude", label: "Saúde", emoji: "💊" },
+  { id: "lazer", label: "Lazer", emoji: "🎬" },
+  { id: "viagem", label: "Viagem", emoji: "✈️" },
+  { id: "outros", label: "Outros", emoji: "📦" },
+];
+ 
 export type PaidBy = "me" | "partner";
-
+ 
 export interface Transaction {
   id: string;
   amount: number;
@@ -29,7 +29,7 @@ export interface Transaction {
   date: string;
   type: "expense" | "income";
 }
-
+ 
 export interface Goal {
   id: string;
   name: string;
@@ -38,13 +38,13 @@ export interface Goal {
   current: number;
   deadline: string;
 }
-
+ 
 export interface Couple {
   me: { name: string; email: string };
   partner: { name: string; email: string; pending?: boolean };
   subscription: { status: "trial" | "active"; daysLeft?: number; plan?: string };
 }
-
+ 
 interface Ctx {
   couple: Couple;
   setCouple: (c: Couple) => void;
@@ -58,15 +58,15 @@ interface Ctx {
   userId: string | null;
   createCouple: (uid: string) => Promise<void>;
 }
-
+ 
 const DuettoContext = createContext<Ctx | null>(null);
-
+ 
 const DEFAULT_COUPLE: Couple = {
   me: { name: "", email: "" },
   partner: { name: "", email: "", pending: true },
   subscription: { status: "trial", daysLeft: 14 },
 };
-
+ 
 export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   const [couple, setCouple] = useState<Couple>(DEFAULT_COUPLE);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -74,42 +74,40 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [coupleId, setCoupleId] = useState<string | null>(null);
-
+ 
   const coupleIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(null);
-
-  // Cria o casal para o utilizador que se registou (chamado pelo Register.tsx)
+ 
   const createCouple = async (uid: string) => {
     const { data: existing } = await supabase
       .from("couples")
       .select("id")
       .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
       .maybeSingle();
-
-    if (existing) return; // jÃ¡ tem casal
-
+ 
+    if (existing) return;
+ 
     const { data: newCouple } = await supabase
       .from("couples")
       .insert({ user1_id: uid, status: "pending" })
       .select()
       .single();
-
+ 
     if (newCouple) {
       setCoupleId(newCouple.id);
       coupleIdRef.current = newCouple.id;
       await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
     }
   };
-
+ 
   const loadData = async (uid: string, email: string, metadata: any) => {
     setLoading(true);
     userIdRef.current = uid;
     setUserId(uid);
-
-    // Garante que o utilizador existe na tabela users
+ 
     const { data: profile } = await supabase
       .from("users").select("*").eq("id", uid).maybeSingle();
-
+ 
     if (!profile) {
       await supabase.from("users").upsert({
         id: uid,
@@ -117,39 +115,32 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         full_name: metadata?.full_name || email?.split("@")[0],
       }, { onConflict: "id", ignoreDuplicates: true });
     }
-
+ 
     const myName = profile?.full_name || metadata?.full_name || email?.split("@")[0] || "";
     const myEmail = email || "";
-
-    // Se hÃ¡ um convite pendente, aguarda o AuthCallback terminar (mÃ¡x 3s)
-    const pendingJoin = localStorage.getItem("duetto_join_couple");
-    if (pendingJoin) {
-      console.log("â³ Convite pendente detectado, aguarda AuthCallback...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
+ 
     const { data: couples } = await supabase
       .from("couples")
       .select("*")
       .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
       .order("created_at", { ascending: false })
       .limit(1);
-
+ 
     const coupleData = couples?.[0] ?? null;
-
+ 
     if (coupleData) {
       setCoupleId(coupleData.id);
       coupleIdRef.current = coupleData.id;
-
+ 
       const partnerId = coupleData.user1_id === uid ? coupleData.user2_id : coupleData.user1_id;
       let partnerName = "";
       let partnerEmail = "";
       let partnerPending = !partnerId;
-
+ 
       if (partnerId) {
         const { data: partnerProfile } = await supabase
           .from("users").select("full_name, email").eq("id", partnerId).maybeSingle();
-
+ 
         if (partnerProfile) {
           partnerName = partnerProfile.full_name || "";
           partnerEmail = partnerProfile.email || "";
@@ -159,23 +150,23 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
           partnerPending = true;
         }
       }
-
+ 
       const { data: sub } = await supabase
         .from("subscriptions").select("*").eq("couple_id", coupleData.id).maybeSingle();
-
+ 
       const daysLeft = sub?.trial_ends_at
         ? Math.max(0, Math.ceil((new Date(sub.trial_ends_at).getTime() - Date.now()) / 86400000))
         : 14;
-
+ 
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: partnerName, email: partnerEmail, pending: partnerPending },
         subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
       });
-
+ 
       const { data: txData } = await supabase
         .from("transactions").select("*").eq("couple_id", coupleData.id).order("date", { ascending: false });
-
+ 
       if (txData) {
         setTransactions(txData.map((t) => ({
           id: t.id,
@@ -187,57 +178,60 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
           type: (t.type as "expense" | "income") || "expense",
         })));
       }
-
+ 
       const { data: goalsData } = await supabase
         .from("goals").select("*").eq("couple_id", coupleData.id);
-
+ 
       if (goalsData) {
         setGoals(goalsData.map((g) => ({
           id: g.id,
           name: g.name,
-          emoji: g.emoji || "ðŸŽ¯",
+          emoji: g.emoji || "🎯",
           target: Number(g.target_amount),
           current: Number(g.current_amount),
           deadline: g.deadline || "",
         })));
       }
     } else {
-      // Sem casal â€” o Register.tsx vai chamar createCouple() se necessÃ¡rio
-      // O loadData NÃƒO cria casal aqui para evitar conflitos com o fluxo de convite
-      console.log("â„¹ï¸ Sem casal encontrado para", uid);
+      console.log("Sem casal encontrado para", uid);
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: "", email: "", pending: true },
         subscription: { status: "trial", daysLeft: 14 },
       });
     }
-
+ 
     setLoading(false);
   };
-
+ 
   useEffect(() => {
-    let loaded = false;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const forceReload = urlParams.get("reload") === "1";
-    if (forceReload) {
-      window.history.replaceState({}, "", window.location.pathname);
+    // Se estamos no AuthCallback, não inicializa — evita race condition
+    if (window.location.pathname.includes("auth/callback") ||
+        window.location.pathname.includes("oauth")) {
+      console.log("DuettoProvider suspenso - AuthCallback em curso");
+      setLoading(false);
+      return;
     }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
+ 
+    let loaded = false;
+ 
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && !loaded) {
         loaded = true;
-        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+        await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
       }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
+    };
+ 
+    init();
+ 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user && !loaded) {
         loaded = true;
-        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+        await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
       }
       if (event === "TOKEN_REFRESHED" && session?.user) {
-        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+        await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
       }
       if (event === "SIGNED_OUT") {
         loaded = false;
@@ -250,18 +244,11 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         userIdRef.current = null;
       }
     });
-
-    // Se estamos no AuthCallback, nao carrega dados - evita race condition
-    if (window.location.pathname.includes("auth/callback") || window.location.pathname.includes("oauth")) {
-      console.log("DuettoProvider suspenso - AuthCallback em curso");
-      setLoading(false);
-      return;
-    }
-
+ 
     const timeout = setTimeout(() => { if (!loaded) setLoading(false); }, 3000);
     return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
-
+ 
   const addTransaction = async (t: Omit<Transaction, "id">) => {
     const cId = coupleIdRef.current;
     const uId = userIdRef.current;
@@ -278,9 +265,9 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       description: t.note,
       date: t.date.split("T")[0],
     });
-    if (error) console.error("âŒ Erro transactions:", error);
+    if (error) console.error("Erro transactions:", error);
   };
-
+ 
   const addGoal = async (g: Omit<Goal, "id" | "current">) => {
     const cId = coupleIdRef.current;
     if (!cId) return;
@@ -294,25 +281,23 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       target_amount: g.target,
       deadline: g.deadline,
     });
-    if (error) console.error("âŒ Erro goals:", error);
+    if (error) console.error("Erro goals:", error);
   };
-
+ 
   const value = useMemo<Ctx>(
     () => ({ couple, setCouple, transactions, setTransactions, addTransaction, goals, setGoals, addGoal, loading, userId, createCouple }),
     [couple, transactions, goals, loading, userId, coupleId]
   );
-
+ 
   return <DuettoContext.Provider value={value}>{children}</DuettoContext.Provider>;
 };
-
+ 
 export const useDuetto = () => {
   const ctx = useContext(DuettoContext);
   if (!ctx) throw new Error("useDuetto must be used within DuettoProvider");
   return ctx;
 };
-
+ 
 export const formatEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
-
-
-
+ 
