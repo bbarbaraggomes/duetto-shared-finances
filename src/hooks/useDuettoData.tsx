@@ -7,16 +7,16 @@ export type Category =
   | "trabalho" | "renda" | "freelance" | "investimento"
   | "presente" | "reembolso" | "bonus" | "outro";
 
-export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
-  { id: "casa", label: "Casa", emoji: "ðŸ " },
-  { id: "mercado", label: "Mercado", emoji: "ðŸ›’" },
-  { id: "restaurante", label: "Restaurante", emoji: "ðŸ½ï¸" },
-  { id: "transporte", label: "Transporte", emoji: "ðŸš—" },
-  { id: "saude", label: "SaÃºde", emoji: "ðŸ’Š" },
-  { id: "lazer", label: "Lazer", emoji: "ðŸŽ¬" },
-  { id: "viagem", label: "Viagem", emoji: "âœˆï¸" },
-  { id: "outros", label: "Outros", emoji: "ðŸ“¦" },
-];
+  export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
+    { id: "casa", label: "Casa", emoji: "🏠" },
+    { id: "mercado", label: "Mercado", emoji: "🛒" },
+    { id: "restaurante", label: "Restaurante", emoji: "🍽️" },
+    { id: "transporte", label: "Transporte", emoji: "🚗" },
+    { id: "saude", label: "Saúde", emoji: "💊" },
+    { id: "lazer", label: "Lazer", emoji: "🎬" },
+    { id: "viagem", label: "Viagem", emoji: "✈️" },
+    { id: "outros", label: "Outros", emoji: "📦" },
+  ];
 
 export type PaidBy = "me" | "partner";
 
