@@ -20,7 +20,7 @@ const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
  
 const Profile = () => {
   const navigate = useNavigate();
-  const { couple, userId, setCouple } = useDuetto();
+  const { couple, userId: contextUserId, setCouple } = useDuetto();
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -32,23 +32,45 @@ const Profile = () => {
   const [savingEmail, setSavingEmail] = useState(false);
   const [coupleId, setCoupleId] = useState<string | null>(null);
  
-  // Carrega o email do convite já guardado
+  // Carrega o casal — usa userId do contexto OU directamente da sessão Supabase
   useEffect(() => {
-    if (!userId) return;
-    supabase
-      .from("couples")
-      .select("id, invite_email")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setCoupleId(data.id);
-          setSavedInviteEmail(data.invite_email || "");
-          setPartnerEmail(data.invite_email || "");
+    let attempts = 0;
+    const maxAttempts = 6;
+ 
+    const fetchCouple = async () => {
+      // Tenta obter o userId da sessão directamente se não estiver no contexto
+      let uid = contextUserId;
+      if (!uid) {
+        const { data: { session } } = await supabase.auth.getSession();
+        uid = session?.user?.id || null;
+      }
+      if (!uid) {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(fetchCouple, 800);
         }
-      });
-  }, [userId]);
+        return;
+      }
+ 
+      const { data } = await supabase
+        .from("couples")
+        .select("id, invite_email")
+        .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
+        .limit(1)
+        .maybeSingle();
+ 
+      if (data) {
+        setCoupleId(data.id);
+        setSavedInviteEmail(data.invite_email || "");
+        setPartnerEmail(data.invite_email || "");
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(fetchCouple, 800);
+      }
+    };
+ 
+    fetchCouple();
+  }, [contextUserId]);
  
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -90,7 +112,6 @@ const Profile = () => {
     setShowInviteInput(false);
     setSavingEmail(false);
  
-    // Copia o link automaticamente
     const inviteLink = `${window.location.origin}/register?invite=${coupleId}`;
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
@@ -134,7 +155,7 @@ const Profile = () => {
   };
  
   const handleUnlink = async () => {
-    if (!userId || !coupleId) return;
+    if (!coupleId) return;
     setUnlinking(true);
     await supabase.from("couples").update({ user2_id: null, status: "pending", invite_email: null }).eq("id", coupleId);
     setCouple({ ...couple, partner: { name: "", email: "", pending: true } });
@@ -192,7 +213,6 @@ const Profile = () => {
               </div>
             </div>
  
-            {/* Email guardado — mostra com opção de editar */}
             {savedInviteEmail && !showInviteInput && (
               <div className="mt-4 flex items-center justify-between rounded-xl bg-background/60 px-4 py-3">
                 <div>
@@ -208,7 +228,6 @@ const Profile = () => {
               </div>
             )}
  
-            {/* Input para introduzir/editar email */}
             {showInviteInput && (
               <div className="mt-4 space-y-3">
                 <div>
@@ -240,7 +259,6 @@ const Profile = () => {
               </div>
             )}
  
-            {/* Botão copiar link — só mostra se não está no input */}
             {!showInviteInput && (
               <button
                 onClick={savedInviteEmail ? handleCopyLink : () => setShowInviteInput(true)}
