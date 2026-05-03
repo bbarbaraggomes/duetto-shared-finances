@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus } from "lucide-react";
+import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
-
+ 
 const SUPABASE_FUNCTION_URL = "https://maskbsseptaihntezvcm.supabase.co/functions/v1/quick-handler";
-
+ 
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
     className={`flex h-16 w-16 items-center justify-center rounded-full font-display text-[22px] ${
@@ -17,7 +17,7 @@ const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
     {name ? name.charAt(0).toUpperCase() : "?"}
   </div>
 );
-
+ 
 const Profile = () => {
   const navigate = useNavigate();
   const { couple, userId, setCouple } = useDuetto();
@@ -28,93 +28,84 @@ const Profile = () => {
   const [loadingPlan, setLoadingPlan] = useState<"monthly" | "yearly" | null>(null);
   const [showInviteInput, setShowInviteInput] = useState(false);
   const [partnerEmail, setPartnerEmail] = useState("");
+  const [savedInviteEmail, setSavedInviteEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
-
+  const [coupleId, setCoupleId] = useState<string | null>(null);
+ 
+  // Carrega o email do convite já guardado
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("couples")
+      .select("id, invite_email")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setCoupleId(data.id);
+          setSavedInviteEmail(data.invite_email || "");
+          setPartnerEmail(data.invite_email || "");
+        }
+      });
+  }, [userId]);
+ 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success("Sessão terminada.");
     navigate("/login");
   };
-
-  const handleCopyInvite = async () => {
-    // Busca o casal
-    const { data: coupleData, error } = await supabase
-      .from("couples")
-      .select("id, invite_email")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !coupleData) {
+ 
+  const handleCopyLink = async () => {
+    if (!coupleId) {
       toast.error("Erro ao gerar link de convite.");
       return;
     }
-
-    // Se ainda não tem email do parceiro guardado, mostra o input
-    if (!coupleData.invite_email && !partnerEmail) {
-      setShowInviteInput(true);
-      return;
-    }
-
-    // Copia o link
-    const inviteLink = `${window.location.origin}/register?invite=${coupleData.id}`;
+    const inviteLink = `${window.location.origin}/register?invite=${coupleId}`;
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     toast.success("Link copiado!");
     setTimeout(() => setCopied(false), 3000);
   };
-
+ 
   const handleSavePartnerEmail = async () => {
     if (!partnerEmail || !partnerEmail.includes("@")) {
       toast.error("Introduz um email válido.");
       return;
     }
-    setSavingEmail(true);
-
-    const { data: coupleData } = await supabase
-      .from("couples")
-      .select("id")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .limit(1)
-      .maybeSingle();
-
-    if (!coupleData) {
+    if (!coupleId) {
       toast.error("Erro ao encontrar o casal.");
-      setSavingEmail(false);
       return;
     }
-
-    // Guarda o email do parceiro — o trigger vai usar isto para ligar automaticamente
+    setSavingEmail(true);
+ 
+    const emailClean = partnerEmail.toLowerCase().trim();
+ 
     await supabase
       .from("couples")
-      .update({ invite_email: partnerEmail.toLowerCase().trim() })
-      .eq("id", coupleData.id);
-
-    // Copia o link
-    const inviteLink = `${window.location.origin}/register?invite=${coupleData.id}`;
-    await navigator.clipboard.writeText(inviteLink);
-
-    setSavingEmail(false);
+      .update({ invite_email: emailClean })
+      .eq("id", coupleId);
+ 
+    setSavedInviteEmail(emailClean);
     setShowInviteInput(false);
+    setSavingEmail(false);
+ 
+    // Copia o link automaticamente
+    const inviteLink = `${window.location.origin}/register?invite=${coupleId}`;
+    await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
-    toast.success("Link copiado! Partilha com o(a) teu(tua) parceiro(a).");
+    toast.success("Email guardado e link copiado!");
     setTimeout(() => setCopied(false), 3000);
   };
-
+ 
   const handleSubscribe = async (plan: "monthly" | "yearly") => {
     setLoadingPlan(plan);
     try {
-      const { data: couples } = await supabase
-        .from("couples")
-        .select("id")
-        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-        .limit(1);
-
-      const coupleId = couples?.[0]?.id;
-      if (!coupleId) { toast.error("Erro ao encontrar o casal."); return; }
-
+      const cId = coupleId;
+      if (!cId) { toast.error("Erro ao encontrar o casal."); return; }
+ 
       const { data: { session } } = await supabase.auth.getSession();
-
+ 
       const res = await fetch(SUPABASE_FUNCTION_URL, {
         method: "POST",
         headers: {
@@ -123,12 +114,12 @@ const Profile = () => {
         },
         body: JSON.stringify({
           plan,
-          coupleId,
+          coupleId: cId,
           successUrl: `${window.location.origin}/dashboard?success=true`,
           cancelUrl: `${window.location.origin}/profile`,
         }),
       });
-
+ 
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -141,39 +132,34 @@ const Profile = () => {
       setLoadingPlan(null);
     }
   };
-
+ 
   const handleUnlink = async () => {
-    if (!userId) return;
+    if (!userId || !coupleId) return;
     setUnlinking(true);
-    const { data: couples } = await supabase
-      .from("couples")
-      .select("id, user1_id, user2_id")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .limit(1);
-    const coupleData = couples?.[0];
-    if (!coupleData) { toast.error("Erro ao encontrar o casal."); setUnlinking(false); return; }
-    await supabase.from("couples").update({ user2_id: null, status: "pending", invite_email: null }).eq("id", coupleData.id);
+    await supabase.from("couples").update({ user2_id: null, status: "pending", invite_email: null }).eq("id", coupleId);
     setCouple({ ...couple, partner: { name: "", email: "", pending: true } });
+    setSavedInviteEmail("");
+    setPartnerEmail("");
     setUnlinking(false);
     setConfirmUnlink(false);
     toast.success("Casal desligado. Podem recomeçar quando quiserem.");
   };
-
+ 
   const sub = couple.subscription;
   const isTrial = sub.status === "trial";
   const subLabel = isTrial
     ? `Trial — ${sub.daysLeft} dias restantes`
     : `Ativo — ${sub.plan ?? "Plano Pro"}`;
-
+ 
   const partnerPending = couple.partner.pending;
-
+ 
   return (
     <AppShell>
       <header className="px-6 pt-10 pb-4">
         <p className="text-[13px] text-muted-foreground">A vossa conta</p>
         <h1 className="mt-1 font-display text-[26px] text-foreground">Perfil</h1>
       </header>
-
+ 
       <section className="px-6">
         <div className="rounded-3xl bg-card p-6 shadow-soft">
           <div className="flex items-center justify-center gap-4">
@@ -192,7 +178,7 @@ const Profile = () => {
           </div>
         </div>
       </section>
-
+ 
       {partnerPending && (
         <section className="px-6 pt-4">
           <div className="rounded-3xl border border-accent/30 bg-accent/5 p-5">
@@ -205,16 +191,36 @@ const Profile = () => {
                 <p className="text-[12px] text-muted-foreground">Partilha o link e ele(a) entra automaticamente</p>
               </div>
             </div>
-
-            {showInviteInput ? (
+ 
+            {/* Email guardado — mostra com opção de editar */}
+            {savedInviteEmail && !showInviteInput && (
+              <div className="mt-4 flex items-center justify-between rounded-xl bg-background/60 px-4 py-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Email do(a) parceiro(a)</p>
+                  <p className="mt-0.5 text-[13px] font-medium text-foreground">{savedInviteEmail}</p>
+                </div>
+                <button
+                  onClick={() => setShowInviteInput(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
+            )}
+ 
+            {/* Input para introduzir/editar email */}
+            {showInviteInput && (
               <div className="mt-4 space-y-3">
                 <div>
-                  <p className="text-[12px] text-muted-foreground mb-1">Email do(a) parceiro(a)</p>
+                  <p className="text-[12px] text-muted-foreground mb-1">
+                    {savedInviteEmail ? "Corrigir email" : "Email do(a) parceiro(a)"}
+                  </p>
                   <input
                     type="email"
                     value={partnerEmail}
                     onChange={(e) => setPartnerEmail(e.target.value)}
                     placeholder="email@exemplo.com"
+                    autoFocus
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-[14px] text-foreground outline-none focus:border-accent"
                   />
                 </div>
@@ -226,15 +232,18 @@ const Profile = () => {
                   {savingEmail ? "A guardar..." : "Guardar e copiar link"}
                 </button>
                 <button
-                  onClick={() => setShowInviteInput(false)}
+                  onClick={() => { setShowInviteInput(false); setPartnerEmail(savedInviteEmail); }}
                   className="w-full text-center text-[13px] text-muted-foreground"
                 >
                   Cancelar
                 </button>
               </div>
-            ) : (
+            )}
+ 
+            {/* Botão copiar link — só mostra se não está no input */}
+            {!showInviteInput && (
               <button
-                onClick={handleCopyInvite}
+                onClick={savedInviteEmail ? handleCopyLink : () => setShowInviteInput(true)}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-[14px] font-medium text-accent-foreground transition-opacity hover:opacity-90"
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
@@ -244,7 +253,7 @@ const Profile = () => {
           </div>
         </section>
       )}
-
+ 
       <section className="px-6 pt-4">
         <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">
           <div className="flex items-center gap-3">
@@ -265,7 +274,7 @@ const Profile = () => {
           </button>
         </div>
       </section>
-
+ 
       <section className="px-6 pt-4 space-y-2 pb-10">
         {!partnerPending && (
           <button
@@ -282,7 +291,7 @@ const Profile = () => {
             <ChevronRight size={16} className="text-muted-foreground" />
           </button>
         )}
-
+ 
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-4 text-left shadow-soft transition-colors hover:bg-background-soft"
@@ -296,7 +305,7 @@ const Profile = () => {
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
       </section>
-
+ 
       {showPlans && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
@@ -324,7 +333,7 @@ const Profile = () => {
                 </div>
                 {loadingPlan === "monthly" && <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>}
               </button>
-
+ 
               <button
                 onClick={() => handleSubscribe("yearly")}
                 disabled={loadingPlan !== null}
@@ -352,7 +361,7 @@ const Profile = () => {
           </div>
         </div>
       )}
-
+ 
       {confirmUnlink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-6 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[360px] rounded-3xl bg-card p-6 shadow-card-up">
@@ -381,5 +390,6 @@ const Profile = () => {
     </AppShell>
   );
 };
-
+ 
 export default Profile;
+ 
