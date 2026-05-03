@@ -193,7 +193,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         })));
       }
     } else {
-      console.log("Sem casal encontrado para", uid);
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: "", email: "", pending: true },
@@ -205,33 +204,22 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   };
  
   useEffect(() => {
-    // Se estamos no AuthCallback, não inicializa — evita race condition
-    if (window.location.pathname.includes("auth/callback") ||
-        window.location.pathname.includes("oauth")) {
-      console.log("DuettoProvider suspenso - AuthCallback em curso");
-      setLoading(false);
-      return;
-    }
- 
     let loaded = false;
  
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user && !loaded) {
         loaded = true;
-        await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
       }
-    };
+    });
  
-    init();
- 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user && !loaded) {
         loaded = true;
-        await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
       }
       if (event === "TOKEN_REFRESHED" && session?.user) {
-        await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+        loadData(session.user.id, session.user.email || "", session.user.user_metadata);
       }
       if (event === "SIGNED_OUT") {
         loaded = false;
