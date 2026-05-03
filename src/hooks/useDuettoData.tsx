@@ -145,9 +145,6 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
           partnerName = partnerProfile.full_name || "";
           partnerEmail = partnerProfile.email || "";
           partnerPending = false;
-        } else {
-          partnerName = coupleData.invite_email?.split("@")[0] || "";
-          partnerPending = true;
         }
       }
  
@@ -202,6 +199,38 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
  
     setLoading(false);
   };
+ 
+  // Realtime: quando o casal é actualizado (parceiro aceita convite), recarrega os dados
+  useEffect(() => {
+    if (!coupleId || !userIdRef.current) return;
+ 
+    const channel = supabase
+      .channel(`couple-${coupleId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "couples",
+          filter: `id=eq.${coupleId}`,
+        },
+        async (payload) => {
+          const updated = payload.new as any;
+          // Se o user2_id foi preenchido, recarrega os dados
+          if (updated.user2_id && userIdRef.current) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              await loadData(session.user.id, session.user.email || "", session.user.user_metadata);
+            }
+          }
+        }
+      )
+      .subscribe();
+ 
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [coupleId]);
  
   useEffect(() => {
     let loaded = false;
