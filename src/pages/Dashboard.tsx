@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, X } from "lucide-react";
 import { AppShell } from "@/components/duetto/AppShell";
 import { ProgressBar } from "@/components/duetto/ProgressBar";
 import { CATEGORIES, formatEUR, useDuetto } from "@/hooks/useDuettoData";
-
+ 
 const INCOME_CATEGORIES = [
   { id: "trabalho", label: "Trabalho", emoji: "💼" },
   { id: "renda", label: "Renda", emoji: "🏠" },
@@ -15,21 +15,31 @@ const INCOME_CATEGORIES = [
   { id: "bonus", label: "Bónus", emoji: "⭐" },
   { id: "outro", label: "Outro", emoji: "📦" },
 ];
-
+ 
 const ALL_CATEGORIES = [...CATEGORIES, ...INCOME_CATEGORIES];
-
+ 
 const CHART_COLORS = [
   "#C8A96E", "#1A1A2E", "#4A6FA5", "#E8A87C",
   "#6B8F71", "#D4A5A5", "#9B8EA8", "#7FADA0",
 ];
-
+ 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { couple, transactions, goals } = useDuetto();
   const [showTypeModal, setShowTypeModal] = useState(false);
-
+ 
+  // Quando vem do AuthCallback com ?reload=1, faz reload completo da página
+  // para garantir que o DuettoProvider carrega os dados frescos (casal ligado)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reload") === "1") {
+      window.history.replaceState({}, "", "/dashboard");
+      window.location.reload();
+    }
+  }, []);
+ 
   const now = new Date();
-
+ 
   const monthTransactions = useMemo(
     () => transactions.filter((t) => {
       const d = new Date(t.date);
@@ -37,22 +47,21 @@ const Dashboard = () => {
     }),
     [transactions],
   );
-
+ 
   const monthExpenses = useMemo(
     () => monthTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
     [monthTransactions],
   );
-
+ 
   const monthIncome = useMemo(
     () => monthTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
     [monthTransactions],
   );
-
+ 
   const balance = monthIncome - monthExpenses;
   const primaryGoal = goals[0];
   const recent = transactions.slice(0, 5);
-
-  // Despesas agrupadas por categoria para o gráfico
+ 
   const categoryData = useMemo(() => {
     const expensesByCategory: Record<string, number> = {};
     monthTransactions
@@ -60,7 +69,7 @@ const Dashboard = () => {
       .forEach((t) => {
         expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
       });
-
+ 
     return Object.entries(expensesByCategory)
       .map(([id, amount]) => ({
         id,
@@ -71,7 +80,7 @@ const Dashboard = () => {
       }))
       .sort((a, b) => b.amount - a.amount);
   }, [monthTransactions, monthExpenses]);
-
+ 
   return (
     <AppShell>
       <header className="px-6 pt-10 pb-6">
@@ -83,8 +92,7 @@ const Dashboard = () => {
           {couple.partner && !couple.partner.pending && <> e {couple.partner.name}</>}
         </h1>
       </header>
-
-      {/* Card saldo */}
+ 
       <section className="px-6">
         <div className="relative overflow-hidden rounded-3xl bg-primary px-6 py-7 text-primary-foreground shadow-soft">
           <div
@@ -109,16 +117,13 @@ const Dashboard = () => {
           </div>
         </div>
       </section>
-
-      {/* Gráfico por categoria */}
+ 
       {categoryData.length > 0 && (
         <section className="px-6 pt-6">
           <div className="rounded-3xl bg-card p-5 shadow-soft">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-4">
               Despesas por categoria
             </p>
-
-            {/* Barra empilhada */}
             <div className="flex h-3 w-full overflow-hidden rounded-full">
               {categoryData.map((c, i) => (
                 <div
@@ -130,8 +135,6 @@ const Dashboard = () => {
                 />
               ))}
             </div>
-
-            {/* Legenda */}
             <ul className="mt-4 space-y-2">
               {categoryData.map((c, i) => (
                 <li key={c.id} className="flex items-center justify-between">
@@ -154,8 +157,7 @@ const Dashboard = () => {
           </div>
         </section>
       )}
-
-      {/* Meta principal */}
+ 
       {primaryGoal && (
         <section className="px-6 pt-6">
           <Link
@@ -182,8 +184,7 @@ const Dashboard = () => {
           </Link>
         </section>
       )}
-
-      {/* Últimas transações */}
+ 
       <section className="px-6 pt-7 pb-32">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-[20px] text-foreground">Últimas transações</h2>
@@ -220,8 +221,7 @@ const Dashboard = () => {
           })}
         </ul>
       </section>
-
-      {/* Botão + */}
+ 
       <button
         onClick={() => setShowTypeModal(true)}
         aria-label="Adicionar transação"
@@ -230,8 +230,7 @@ const Dashboard = () => {
       >
         <Plus size={26} strokeWidth={2.2} className="relative z-10" />
       </button>
-
-      {/* Modal despesa/receita */}
+ 
       {showTypeModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
@@ -272,5 +271,6 @@ const Dashboard = () => {
     </AppShell>
   );
 };
-
+ 
 export default Dashboard;
+ 
