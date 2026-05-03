@@ -245,6 +245,13 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
+    // Se estamos no AuthCallback, nao carrega dados - evita race condition
+    if (window.location.pathname === "/auth/callback") {
+      console.log("DuettoProvider suspenso - AuthCallback em curso");
+      setLoading(false);
+      return;
+    }
+
     const timeout = setTimeout(() => { if (!loaded) setLoading(false); }, 3000);
     return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
@@ -300,3 +307,4 @@ export const useDuetto = () => {
 
 export const formatEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
+
