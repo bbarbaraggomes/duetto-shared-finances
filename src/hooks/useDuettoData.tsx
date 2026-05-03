@@ -125,7 +125,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
     const pendingJoin = localStorage.getItem("duetto_join_couple");
     if (pendingJoin) {
       console.log("⏳ Convite pendente detectado, aguarda AuthCallback...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
     const { data: couples } = await supabase
