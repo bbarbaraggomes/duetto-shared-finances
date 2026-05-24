@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +32,19 @@ const AddExpense = () => {
   const [paidBy, setPaidBy] = useState<PaidBy>("me");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const amountContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target;
+      if (target !== amountInputRef.current) return;
+      amountInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
   const isIncome = type === "income";
   const activeCategories = isIncome ? INCOME_CATEGORIES : CATEGORIES;
 
@@ -47,6 +60,18 @@ const AddExpense = () => {
       if (prev === "0") return k;
       return prev + k;
     });
+  };
+
+  const handleAmountInput = (value: string) => {
+    const sanitized = value.replace(/[^\d,]/g, "");
+    const parts = sanitized.split(",");
+    const normalized =
+      parts.length > 2 ? `${parts[0]},${parts.slice(1).join("")}` : sanitized;
+    if (!normalized || normalized === ",") {
+      setAmount("0");
+      return;
+    }
+    setAmount(normalized.startsWith(",") ? `0${normalized}` : normalized);
   };
 
   const numeric = parseFloat(amount.replace(",", ".")) || 0;
@@ -73,6 +98,7 @@ const AddExpense = () => {
 
   return (
     <AppShell hideNav>
+      <div className="add-expense-page flex flex-1 flex-col overflow-y-auto">
       <header className="flex items-center justify-between px-6 pt-6 pb-2">
         <button
           onClick={() => navigate(-1)}
@@ -112,13 +138,31 @@ const AddExpense = () => {
       </div>
 
       <form onSubmit={handleSave} className="flex flex-1 flex-col px-6">
-        <div className="flex flex-col items-center py-6">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-muted-foreground">Valor</p>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-display text-[56px] leading-none text-foreground">
-              {amount.replace(".", ",")}
-            </span>
-            <span className="font-display text-[28px] text-muted-foreground">€</span>
+        <div ref={amountContainerRef} className="scroll-mt-4">
+          <div className="sticky top-0 z-10 bg-background pb-4 pt-2">
+            <p className="text-center text-[12px] uppercase tracking-[0.15em] text-muted-foreground">Valor</p>
+            <div
+              className="mt-3 flex cursor-text items-baseline justify-center gap-2"
+              onClick={() => amountInputRef.current?.focus()}
+            >
+              <span className="font-display text-[56px] leading-none text-foreground">
+                {amount.replace(".", ",")}
+              </span>
+              <span className="font-display text-[28px] text-muted-foreground">€</span>
+            </div>
+            <input
+              ref={amountInputRef}
+              id="amount-input"
+              type="text"
+              inputMode="decimal"
+              enterKeyHint="done"
+              aria-label="Valor"
+              value={amount === "0" ? "" : amount}
+              onChange={(e) => handleAmountInput(e.target.value)}
+              onFocus={() => amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              className="mt-3 h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-center text-[18px] font-display text-foreground outline-none focus:border-accent"
+              placeholder="0"
+            />
           </div>
         </div>
 
@@ -205,6 +249,7 @@ const AddExpense = () => {
           </PrimaryButton>
         </div>
       </form>
+      </div>
     </AppShell>
   );
 };

@@ -178,4 +178,8 @@
   .fab-add-transaction--pulse {
     animation: fab-subtle-pulse 2.2s ease-in-out infinite;
   }
+
+  .add-expense-page {
+    padding-bottom: env(keyboard-inset-height, 300px);
+  }
 }
