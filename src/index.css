@@ -161,4 +161,21 @@
   .press-scale:active {
     transform: scale(0.98);
   }
+
+  .fab-add-transaction {
+    position: fixed;
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    right: 1.5rem;
+    z-index: 50;
+    box-shadow: 0 4px 20px rgba(200, 169, 110, 0.4);
+  }
+
+  @keyframes fab-subtle-pulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(200, 169, 110, 0.4); }
+    50%      { box-shadow: 0 4px 28px rgba(200, 169, 110, 0.65); }
+  }
+
+  .fab-add-transaction--pulse {
+    animation: fab-subtle-pulse 2.2s ease-in-out infinite;
+  }
 }

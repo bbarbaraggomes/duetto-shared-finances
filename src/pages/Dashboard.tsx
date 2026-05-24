@@ -185,7 +185,7 @@ const Dashboard = () => {
         </section>
       )}
  
-      <section className="px-6 pt-7 pb-32">
+      <section className="px-6 pt-7 pb-[120px]">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-[20px] text-foreground">Últimas transações</h2>
           <Link to="/expenses" className="text-[13px] text-accent">Ver tudo</Link>
@@ -225,8 +225,7 @@ const Dashboard = () => {
       <button
         onClick={() => setShowTypeModal(true)}
         aria-label="Adicionar transação"
-        className="shimmer-cta press-scale fixed bottom-24 left-1/2 z-30 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-gold"
-        style={{ marginLeft: "120px" }}
+        className={`fab-add-transaction shimmer-cta press-scale flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground${transactions.length === 0 ? " fab-add-transaction--pulse" : ""}`}
       >
         <Plus size={26} strokeWidth={2.2} className="relative z-10" />
       </button>

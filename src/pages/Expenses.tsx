@@ -164,7 +164,7 @@ const Expenses = () => {
         )}
       </div>
 
-      <div className="px-6 pb-32">
+      <div className="px-6 pb-[120px]">
         {Object.keys(grouped).length === 0 && (
           <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-border bg-card/60 px-6 py-12 text-center">
             <span className="text-5xl">💸</span>
@@ -210,7 +210,7 @@ const Expenses = () => {
       <button
         onClick={() => navigate("/add-expense")}
         aria-label="Adicionar transação"
-        className="shimmer-cta press-scale fixed bottom-24 right-[calc(50%-200px)] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-gold"
+        className={`fab-add-transaction shimmer-cta press-scale flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground${filteredTransactions.length === 0 ? " fab-add-transaction--pulse" : ""}`}
       >
         <Plus size={26} strokeWidth={2.2} className="relative z-10" />
       </button>
