@@ -150,20 +150,17 @@ const AddExpense = () => {
               </span>
               <span className="font-display text-[28px] text-muted-foreground">€</span>
             </div>
-            <input
-              ref={amountInputRef}
-              id="amount-input"
-              type="text"
-              inputMode="decimal"
-              enterKeyHint="done"
-              aria-label="Valor"
-              value={amount === "0" ? "" : amount}
-              onChange={(e) => handleAmountInput(e.target.value)}
-              onFocus={() => amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
-              className="mt-3 h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-center text-[18px] font-display text-foreground outline-none focus:border-accent"
-              placeholder="0"
-            />
           </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Data</p>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="mt-2 h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[15px] text-foreground outline-none focus:border-accent"
+          />
         </div>
 
         <div>
@@ -220,13 +217,19 @@ const AddExpense = () => {
           </div>
         </div>
 
-        <div className="mt-4">
-          <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Data</p>
+        <div className="mt-4 scroll-mt-4">
           <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-[15px] text-foreground outline-none focus:border-accent"
+            ref={amountInputRef}
+            id="amount-input"
+            type="text"
+            inputMode="decimal"
+            enterKeyHint="done"
+            aria-label="Valor"
+            value={amount === "0" ? "" : amount}
+            onChange={(e) => handleAmountInput(e.target.value)}
+            onFocus={() => amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            className="h-12 w-full rounded-2xl border-[1.5px] border-border bg-card px-4 text-center text-[18px] font-display text-foreground outline-none focus:border-accent"
+            placeholder="0"
           />
         </div>
 
