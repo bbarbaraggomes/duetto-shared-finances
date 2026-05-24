@@ -21,105 +21,98 @@ const AuthCallback = () => {
   const navigate = useNavigate();
  
   useEffect(() => {
-    const run = async () => {
-      const hash = window.location.hash;
-      const joinId = localStorage.getItem("duetto_join_couple");
- 
-      console.log("AuthCallback joinId:", joinId);
- 
-      const processAuth = async (userId: string, email: string, metadata: any) => {
-        await supabase.from("users").upsert({
-          id: userId,
-          email: email.toLowerCase().trim(),
-          full_name: metadata?.full_name || metadata?.name || email.split("@")[0],
-        }, { onConflict: "id", ignoreDuplicates: false });
- 
-        const { data: existing } = await supabase
-          .from("couples")
-          .select("id")
-          .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-          .maybeSingle();
- 
-        if (existing) {
-          console.log("Ja tem casal:", existing.id);
-          localStorage.removeItem("duetto_join_couple");
-          return;
-        }
- 
-        if (joinId) {
-          console.log("A ligar ao casal:", joinId);
-          const { error } = await supabase
-            .from("couples")
-            .update({ user2_id: userId, status: "active" })
-            .eq("id", joinId)
-            .is("user2_id", null);
- 
-          if (error) {
-            console.error("Erro ao ligar ao casal:", error);
-          } else {
-            console.log("Parceiro ligado ao casal:", joinId);
-          }
-          localStorage.removeItem("duetto_join_couple");
-          return;
-        }
- 
-        console.log("A criar casal novo para:", userId);
-        const { data: newCouple } = await supabase
-          .from("couples")
-          .insert({ user1_id: userId, status: "pending" })
-          .select()
-          .single();
- 
-        if (newCouple) {
-          await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
-          console.log("Casal criado:", newCouple.id);
-        }
-      };
- 
-      if (hash && hash.includes("access_token")) {
-        const params = new URLSearchParams(hash.substring(1));
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
- 
-        if (accessToken && refreshToken) {
-          const { data } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
- 
-          const user = data?.session?.user;
-          console.log("Session user:", user?.id);
- 
-          if (user) {
-            await processAuth(user.id, user.email || "", user.user_metadata);
-            navigate("/dashboard?reload=1", { replace: true });
-          } else {
-            navigate("/login", { replace: true });
-          }
-        }
+    const joinId = localStorage.getItem("duetto_join_couple");
+    let handled = false;
+
+    console.log("AuthCallback joinId:", joinId);
+
+    const processAuth = async (userId: string, email: string, metadata: any) => {
+      await supabase.from("users").upsert({
+        id: userId,
+        email: email.toLowerCase().trim(),
+        full_name: metadata?.full_name || metadata?.name || email.split("@")[0],
+      }, { onConflict: "id", ignoreDuplicates: false });
+
+      const { data: existing } = await supabase
+        .from("couples")
+        .select("id")
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+        .maybeSingle();
+
+      if (existing) {
+        console.log("Ja tem casal:", existing.id);
+        localStorage.removeItem("duetto_join_couple");
         return;
       }
- 
-      const timeout = setTimeout(() => {
-        console.warn("Timeout AuthCallback");
-        localStorage.removeItem("duetto_join_couple");
-        navigate("/login", { replace: true });
-      }, 10000);
- 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log("AuthCallback event:", event, session?.user?.id);
-        if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
-          clearTimeout(timeout);
-          const user = session.user;
-          await processAuth(user.id, user.email || "", user.user_metadata);
-          subscription.unsubscribe();
-          navigate("/dashboard?reload=1", { replace: true });
+
+      if (joinId) {
+        console.log("A ligar ao casal:", joinId);
+        const { error } = await supabase
+          .from("couples")
+          .update({ user2_id: userId, status: "active" })
+          .eq("id", joinId)
+          .is("user2_id", null);
+
+        if (error) {
+          console.error("Erro ao ligar ao casal:", error);
+        } else {
+          console.log("Parceiro ligado ao casal:", joinId);
         }
-      });
+        localStorage.removeItem("duetto_join_couple");
+        return;
+      }
+
+      console.log("A criar casal novo para:", userId);
+      const { data: newCouple } = await supabase
+        .from("couples")
+        .insert({ user1_id: userId, status: "pending" })
+        .select()
+        .single();
+
+      if (newCouple) {
+        await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
+        console.log("Casal criado:", newCouple.id);
+      }
     };
- 
-    run();
-  }, []);
+
+    const timeout = setTimeout(() => {
+      if (handled) return;
+      console.warn("Timeout AuthCallback");
+      navigate("/login?error=timeout", { replace: true });
+    }, 8000);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("AuthCallback event:", event, session?.user?.id);
+      if (handled) return;
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+        handled = true;
+        clearTimeout(timeout);
+        const user = session.user;
+        await processAuth(user.id, user.email || "", user.user_metadata);
+        subscription.unsubscribe();
+        navigate("/dashboard?reload=1", { replace: true });
+      }
+    });
+
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        void supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+      }
+    }
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
  
   return (
     <div style={{
