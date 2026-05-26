@@ -1,90 +1,40 @@
 import { loadStripe } from "@stripe/stripe-js";
-import { supabase } from "@/integrations/supabase/client";
 
-export type StripePlan = "monthly" | "yearly";
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined;
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+export const PLANS = {
+  monthly: {
+    priceId: "price_1TbPC5COcC8JTY4z86QKYXkp",
+    price: "€5,49",
+    label: "Mensal",
+    period: "/mês",
+  },
+  yearly: {
+    priceId: "price_1TbPDLCOcC8JTY4zxC9aiArL",
+    price: "€52,00",
+    label: "Anual",
+    period: "/ano",
+    savings: "Poupa €13,88",
+  },
+} as const;
 
-const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : Promise.resolve(null);
+export type StripePlan = keyof typeof PLANS;
 
-const STRIPE_CHECKOUT_FUNCTION_URL = SUPABASE_URL
-  ? `${SUPABASE_URL}/functions/v1/stripe-checkout-session`
-  : "";
-const STRIPE_CUSTOMER_PORTAL_FUNCTION_URL = SUPABASE_URL
-  ? `${SUPABASE_URL}/functions/v1/stripe-customer-portal`
-  : "";
-
-const getAccessToken = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
-};
-
-export const redirectToCheckout = async (plan: StripePlan, coupleId: string) => {
-  if (!STRIPE_CHECKOUT_FUNCTION_URL) throw new Error("Stripe checkout function URL missing.");
+export const redirectToCheckout = async (
+  plan: StripePlan,
+  coupleId: string,
+  userEmail: string,
+) => {
   const stripe = await stripePromise;
-  if (!stripe) throw new Error("Stripe not configured (missing VITE_STRIPE_PUBLIC_KEY).");
+  if (!stripe) return;
 
-  const token = await getAccessToken();
-  if (!token) throw new Error("Sem sessão de autenticação.");
-
-  const origin = window.location.origin;
-  const successUrl = `${origin}/profile?success=true`;
-  const cancelUrl = `${origin}/profile?canceled=true`;
-
-  const res = await fetch(STRIPE_CHECKOUT_FUNCTION_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ plan, coupleId, successUrl, cancelUrl }),
+  await stripe.redirectToCheckout({
+    lineItems: [{ price: PLANS[plan].priceId, quantity: 1 }],
+    mode: "subscription",
+    successUrl: `${window.location.origin}/profile?success=true`,
+    cancelUrl: `${window.location.origin}/profile?canceled=true`,
+    clientReferenceId: coupleId,
+    customerEmail: userEmail,
   });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data?.error || "Erro ao criar sessão de checkout.");
-  }
-
-  if (data?.sessionId) {
-    const result = await stripe.redirectToCheckout({ sessionId: data.sessionId });
-    if (result?.error) throw new Error(result.error.message || "Falha ao redirecionar para checkout.");
-    return;
-  }
-
-  // Compatibilidade caso a function retorne uma URL direta.
-  if (data?.url) {
-    window.location.href = data.url;
-    return;
-  }
-
-  throw new Error("Resposta inesperada da função de checkout.");
-};
-
-export const openCustomerPortal = async (coupleId: string) => {
-  if (!STRIPE_CUSTOMER_PORTAL_FUNCTION_URL) throw new Error("Stripe customer portal function URL missing.");
-
-  const token = await getAccessToken();
-  if (!token) throw new Error("Sem sessão de autenticação.");
-
-  const origin = window.location.origin;
-  const returnUrl = `${origin}/profile`;
-
-  const res = await fetch(STRIPE_CUSTOMER_PORTAL_FUNCTION_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ coupleId, returnUrl }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data?.error || "Erro ao abrir customer portal.");
-  }
-
-  if (!data?.url) throw new Error("Customer portal não devolveu URL.");
-  window.location.href = data.url;
 };
 

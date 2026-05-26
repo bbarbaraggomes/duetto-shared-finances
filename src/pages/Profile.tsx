@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
-import { openCustomerPortal, redirectToCheckout, type StripePlan } from "@/lib/stripe";
+import { redirectToCheckout, type StripePlan, PLANS } from "@/lib/stripe";
  
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
@@ -73,8 +73,8 @@ const Profile = () => {
     const canceled = searchParams.get("canceled") === "true";
     const upgrade = searchParams.get("upgrade") === "1";
 
-    if (success) toast.success("Pagamento confirmado. Bem-vindos!");
-    if (canceled) toast.error("Pagamento cancelado. Tenta novamente quando quiseres.");
+    if (success) toast.success("Subscrição ativada! Bem-vindos ao Duetto 🎉");
+    if (canceled) toast.error("Pagamento cancelado");
     if (upgrade) setShowPlans(true);
   }, [searchParams]);
  
@@ -167,7 +167,8 @@ const Profile = () => {
     setLoadingPlan(plan);
     try {
       if (!coupleId) { toast.error("Erro ao encontrar o casal."); return; }
-      await redirectToCheckout(plan, coupleId);
+      const email = couple.me.email || "";
+      await redirectToCheckout(plan, coupleId, email);
     } catch (e) {
       const msg = e instanceof Error ? e.message : undefined;
       toast.error(msg || "Erro ao processar pagamento.");
@@ -176,16 +177,6 @@ const Profile = () => {
     }
   };
 
-  const handleManageSubscription = async () => {
-    try {
-      if (!coupleId) { toast.error("Erro ao encontrar o casal."); return; }
-      await openCustomerPortal(coupleId);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : undefined;
-      toast.error(msg || "Erro ao abrir customer portal.");
-    }
-  };
- 
   const handleUnlink = async () => {
     if (!coupleId) return;
     setUnlinking(true);
@@ -326,15 +317,56 @@ const Profile = () => {
               {isActive && renewalDate && (
                 <p className="mt-1 text-[13px] text-primary-foreground/70">Renova em {renewalDate}</p>
               )}
+              {isTrial && (
+                <p className="mt-1 text-[13px] text-primary-foreground/80">
+                  Trial de 14 dias · {sub.daysLeft ?? 0} dias restantes
+                </p>
+              )}
             </div>
           </div>
-          <button
-            onClick={() => (isActive ? handleManageSubscription() : setShowPlans(true))}
-            className="mt-4 flex w-full items-center justify-between rounded-2xl bg-primary-foreground/10 px-4 py-3 text-[14px] font-medium transition-colors hover:bg-primary-foreground/15"
-          >
-            <span>{isActive ? "Gerir subscrição" : "Subscrever agora"}</span>
-            <ChevronRight size={16} />
-          </button>
+          <div className="mt-5 space-y-3">
+            <button
+              onClick={() => handleSubscribe("monthly")}
+              disabled={loadingPlan !== null}
+              className="w-full rounded-2xl border-[1.5px] border-border bg-primary-foreground/5 p-4 text-left transition-all hover:border-accent disabled:opacity-60"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[14px] font-medium text-primary-foreground">
+                    Subscrever — {PLANS.monthly.price}/mês
+                  </p>
+                  <p className="text-[12px] text-primary-foreground/70">Plano Mensal</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-display text-[20px] text-primary-foreground">{PLANS.monthly.price}</p>
+                  <p className="text-[11px] text-primary-foreground/70">{PLANS.monthly.period}</p>
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => handleSubscribe("yearly")}
+              disabled={loadingPlan !== null}
+              className="relative w-full rounded-2xl border-[1.5px] border-accent bg-accent/10 p-4 text-left transition-all disabled:opacity-60"
+            >
+              <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
+                {PLANS.yearly.savings}
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[14px] font-medium text-primary-foreground">
+                    Subscrever — {PLANS.yearly.price}/ano
+                  </p>
+                  <p className="text-[12px] text-primary-foreground/70">
+                    {PLANS.yearly.label} · {PLANS.yearly.savings}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-display text-[20px] text-primary-foreground">{PLANS.yearly.price}</p>
+                  <p className="text-[11px] text-primary-foreground/70">{PLANS.yearly.period}</p>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </section>
  
@@ -368,55 +400,6 @@ const Profile = () => {
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
       </section>
- 
-      {showPlans && !isActive && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-[22px] text-foreground">Escolhe o teu plano</h2>
-              <button onClick={() => setShowPlans(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-background-soft">
-                <span className="text-[16px]">✕</span>
-              </button>
-            </div>
-            <div className="space-y-3">
-              <button onClick={() => handleSubscribe("monthly")} disabled={loadingPlan !== null}
-                className="w-full rounded-2xl border-[1.5px] border-border bg-card p-5 text-left transition-all hover:border-accent disabled:opacity-60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[16px] font-medium text-foreground">Subscrever — €5,49/mês</p>
-                    <p className="text-[13px] text-muted-foreground">Trial 14 dias grátis</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display text-[22px] text-foreground">5,49€</p>
-                    <p className="text-[12px] text-muted-foreground">/mês</p>
-                  </div>
-                </div>
-                {loadingPlan === "monthly" && <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>}
-              </button>
-              <button onClick={() => handleSubscribe("yearly")} disabled={loadingPlan !== null}
-                className="w-full rounded-2xl border-[1.5px] border-accent bg-accent/5 p-5 text-left transition-all disabled:opacity-60 relative">
-                <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
-                  Poupa €13,88
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[16px] font-medium text-foreground">Subscrever — €52,00/ano</p>
-                    <p className="text-[13px] text-muted-foreground">4,33€/mês · poupa €13,88</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display text-[22px] text-foreground">52,00€</p>
-                    <p className="text-[12px] text-muted-foreground">/ano</p>
-                  </div>
-                </div>
-                {loadingPlan === "yearly" && <p className="mt-2 text-[13px] text-accent">A redirecionar...</p>}
-              </button>
-            </div>
-            <p className="mt-5 text-center text-[12px] text-muted-foreground">
-              Pagamento seguro via Stripe · Cancela quando quiseres
-            </p>
-          </div>
-        </div>
-      )}
  
       {confirmUnlink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-6 backdrop-blur-sm animate-fade-in">
