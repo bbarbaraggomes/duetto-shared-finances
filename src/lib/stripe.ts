@@ -23,18 +23,28 @@ export type StripePlan = keyof typeof PLANS;
 export const redirectToCheckout = async (
   plan: StripePlan,
   coupleId: string,
-  userEmail: string,
+  userEmail: string
 ) => {
   const stripe = await stripePromise;
   if (!stripe) return;
 
-  await stripe.redirectToCheckout({
-    lineItems: [{ price: PLANS[plan].priceId, quantity: 1 }],
-    mode: "subscription",
-    successUrl: `${window.location.origin}/profile?success=true`,
-    cancelUrl: `${window.location.origin}/profile?canceled=true`,
-    clientReferenceId: coupleId,
-    customerEmail: userEmail,
-  });
+  // Criar Checkout Session via Supabase Edge Function
+  const response = await fetch(
+    "https://maskbsseptaihntezvcm.supabase.co/functions/v1/create-checkout",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        priceId: PLANS[plan].priceId,
+        coupleId,
+        userEmail,
+        successUrl: `${window.location.origin}/profile?success=true`,
+        cancelUrl: `${window.location.origin}/profile?canceled=true`,
+      }),
+    }
+  );
+
+  const { url } = await response.json();
+  if (url) window.location.href = url;
 };
 
