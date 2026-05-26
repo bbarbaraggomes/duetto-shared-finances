@@ -7,12 +7,15 @@ import { AuthInput } from "@/components/duetto/AuthInput";
 import { Goal, formatEUR, useDuetto } from "@/hooks/useDuettoData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { supabase } from "@/integrations/supabase/client";
 
 const EMOJIS = ["✈️", "🏡", "🚗", "💍", "🍼", "🎓", "🛟", "🎁"];
 
 const Goals = () => {
   const { goals, addGoal, setGoals } = useDuetto();
+
+  useSubscriptionGuard();
 
   // Estado — criar meta
   const [openCreate, setOpenCreate] = useState(false);

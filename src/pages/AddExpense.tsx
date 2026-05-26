@@ -6,6 +6,7 @@ import { AppShell } from "@/components/duetto/AppShell";
 import { PrimaryButton } from "@/components/duetto/PrimaryButton";
 import { AuthInput } from "@/components/duetto/AuthInput";
 import { CATEGORIES, Category, PaidBy, useDuetto } from "@/hooks/useDuettoData";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { cn } from "@/lib/utils";
 
 const INCOME_CATEGORIES = [
@@ -25,6 +26,7 @@ const AddExpense = () => {
   const initialType = searchParams.get("type") === "income" ? "income" : "expense";
 
   const { addTransaction, couple } = useDuetto();
+  useSubscriptionGuard();
   const [type, setType] = useState<"expense" | "income">(initialType);
   const [amount, setAmount] = useState("0");
   const [category, setCategory] = useState<string>(initialType === "income" ? "trabalho" : "mercado");

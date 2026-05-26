@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
- 
-const SUPABASE_FUNCTION_URL = "https://maskbsseptaihntezvcm.supabase.co/functions/v1/quick-handler";
+import { openCustomerPortal, redirectToCheckout, type StripePlan } from "@/lib/stripe";
  
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
@@ -20,6 +19,7 @@ const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
  
 const Profile = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { couple, userId: contextUserId, setCouple } = useDuetto();
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
@@ -67,6 +67,16 @@ const Profile = () => {
  
     fetchCouple();
   }, [contextUserId]);
+
+  useEffect(() => {
+    const success = searchParams.get("success") === "true";
+    const canceled = searchParams.get("canceled") === "true";
+    const upgrade = searchParams.get("upgrade") === "1";
+
+    if (success) toast.success("Pagamento confirmado. Bem-vindos!");
+    if (canceled) toast.error("Pagamento cancelado. Tenta novamente quando quiseres.");
+    if (upgrade) setShowPlans(true);
+  }, [searchParams]);
  
   const handleCopyCode = async () => {
     if (!inviteCode) return;
@@ -153,29 +163,27 @@ const Profile = () => {
     navigate("/login");
   };
  
-  const handleSubscribe = async (plan: "monthly" | "yearly") => {
+  const handleSubscribe = async (plan: StripePlan) => {
     setLoadingPlan(plan);
     try {
-      const cId = coupleId;
-      if (!cId) { toast.error("Erro ao encontrar o casal."); return; }
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(SUPABASE_FUNCTION_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          plan, coupleId: cId,
-          successUrl: `${window.location.origin}/dashboard?success=true`,
-          cancelUrl: `${window.location.origin}/profile`,
-        }),
-      });
-      const data = await res.json();
-      if (data.url) { window.location.href = data.url; }
-      else { toast.error("Erro ao criar sessão de pagamento."); }
-    } catch { toast.error("Erro ao processar pagamento."); }
-    finally { setLoadingPlan(null); }
+      if (!coupleId) { toast.error("Erro ao encontrar o casal."); return; }
+      await redirectToCheckout(plan, coupleId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : undefined;
+      toast.error(msg || "Erro ao processar pagamento.");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      if (!coupleId) { toast.error("Erro ao encontrar o casal."); return; }
+      await openCustomerPortal(coupleId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : undefined;
+      toast.error(msg || "Erro ao abrir customer portal.");
+    }
   };
  
   const handleUnlink = async () => {
@@ -189,8 +197,21 @@ const Profile = () => {
   };
  
   const sub = couple.subscription;
+  const isActive = sub.status === "active";
   const isTrial = sub.status === "trial";
-  const subLabel = isTrial ? `Trial — ${sub.daysLeft} dias restantes` : `Ativo — ${sub.plan ?? "Plano Pro"}`;
+  const isExpired = sub.status === "expired";
+  const planLabel = sub.plan === "yearly" ? "Plano Anual" : "Plano Mensal";
+  const subLabel = isActive
+    ? `Ativo — ${planLabel}`
+    : isTrial
+      ? `Trial — ${sub.daysLeft ?? 0} dias restantes`
+      : isExpired
+        ? "Expirado — Subscreve para continuar"
+        : "Subscreve para continuar";
+
+  const renewalDate = sub.currentPeriodEnd
+    ? new Date(sub.currentPeriodEnd).toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" })
+    : null;
   const partnerPending = couple.partner.pending;
  
   return (
@@ -302,13 +323,16 @@ const Profile = () => {
             <div className="flex-1">
               <p className="text-[11px] uppercase tracking-wide text-primary-foreground/60">Subscrição</p>
               <p className="mt-0.5 text-[15px] font-medium">{subLabel}</p>
+              {isActive && renewalDate && (
+                <p className="mt-1 text-[13px] text-primary-foreground/70">Renova em {renewalDate}</p>
+              )}
             </div>
           </div>
           <button
-            onClick={() => setShowPlans(true)}
+            onClick={() => (isActive ? handleManageSubscription() : setShowPlans(true))}
             className="mt-4 flex w-full items-center justify-between rounded-2xl bg-primary-foreground/10 px-4 py-3 text-[14px] font-medium transition-colors hover:bg-primary-foreground/15"
           >
-            <span>{isTrial ? "Subscrever agora" : "Gerir subscrição"}</span>
+            <span>{isActive ? "Gerir subscrição" : "Subscrever agora"}</span>
             <ChevronRight size={16} />
           </button>
         </div>
@@ -345,7 +369,7 @@ const Profile = () => {
         </button>
       </section>
  
-      {showPlans && (
+      {showPlans && !isActive && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
             <div className="flex items-center justify-between mb-6">
@@ -359,8 +383,8 @@ const Profile = () => {
                 className="w-full rounded-2xl border-[1.5px] border-border bg-card p-5 text-left transition-all hover:border-accent disabled:opacity-60">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[16px] font-medium text-foreground">Plano Mensal</p>
-                    <p className="text-[13px] text-muted-foreground">Cancela quando quiseres</p>
+                    <p className="text-[16px] font-medium text-foreground">Subscrever — €5,49/mês</p>
+                    <p className="text-[13px] text-muted-foreground">Trial 14 dias grátis</p>
                   </div>
                   <div className="text-right">
                     <p className="font-display text-[22px] text-foreground">5,49€</p>
@@ -372,15 +396,15 @@ const Profile = () => {
               <button onClick={() => handleSubscribe("yearly")} disabled={loadingPlan !== null}
                 className="w-full rounded-2xl border-[1.5px] border-accent bg-accent/5 p-5 text-left transition-all disabled:opacity-60 relative">
                 <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
-                  2 meses grátis
+                  Poupa €13,88
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[16px] font-medium text-foreground">Plano Anual</p>
-                    <p className="text-[13px] text-muted-foreground">4,42€/mês · poupas 13€</p>
+                    <p className="text-[16px] font-medium text-foreground">Subscrever — €52,00/ano</p>
+                    <p className="text-[13px] text-muted-foreground">4,33€/mês · poupa €13,88</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-display text-[22px] text-foreground">52,99€</p>
+                    <p className="font-display text-[22px] text-foreground">52,00€</p>
                     <p className="text-[12px] text-muted-foreground">/ano</p>
                   </div>
                 </div>

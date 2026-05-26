@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 import { AppShell } from "@/components/duetto/AppShell";
 import { ProgressBar } from "@/components/duetto/ProgressBar";
 import { CATEGORIES, formatEUR, useDuetto } from "@/hooks/useDuettoData";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
  
 const INCOME_CATEGORIES = [
   { id: "trabalho", label: "Trabalho", emoji: "💼" },
@@ -27,6 +28,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { couple, transactions, goals } = useDuetto();
   const [showTypeModal, setShowTypeModal] = useState(false);
+
+  useSubscriptionGuard();
  
   // Quando vem do AuthCallback com ?reload=1, faz reload completo da página
   // para garantir que o DuettoProvider carrega os dados frescos (casal ligado)

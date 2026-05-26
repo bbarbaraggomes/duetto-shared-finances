@@ -42,7 +42,14 @@ export interface Goal {
 export interface Couple {
   me: { name: string; email: string };
   partner: { name: string; email: string; pending?: boolean };
-  subscription: { status: "trial" | "active"; daysLeft?: number; plan?: string };
+  subscription: {
+    status: "trial" | "active" | "expired";
+    daysLeft?: number;
+    plan?: string;
+    currentPeriodEnd?: string | null;
+    stripeCustomerId?: string | null;
+    stripeSubscriptionId?: string | null;
+  };
 }
  
 interface Ctx {
@@ -155,10 +162,23 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         ? Math.max(0, Math.ceil((new Date(sub.trial_ends_at).getTime() - Date.now()) / 86400000))
         : 14;
  
+      const rawStatus = sub?.status as string | undefined;
+      const isActive = rawStatus === "active";
+      const isPastDueOrCanceled = rawStatus === "past_due" || rawStatus === "canceled";
+      const computedStatus: Couple["subscription"]["status"] =
+        isActive ? "active" : !isPastDueOrCanceled && daysLeft > 0 ? "trial" : "expired";
+
       setCouple({
         me: { name: myName, email: myEmail },
         partner: { name: partnerName, email: partnerEmail, pending: partnerPending },
-        subscription: { status: sub?.status === "active" ? "active" : "trial", daysLeft },
+        subscription: {
+          status: computedStatus,
+          daysLeft: computedStatus === "trial" ? daysLeft : 0,
+          plan: sub?.plan,
+          currentPeriodEnd: sub?.current_period_end ?? null,
+          stripeCustomerId: (sub as unknown as { stripe_customer_id?: string | null })?.stripe_customer_id ?? null,
+          stripeSubscriptionId: (sub as unknown as { stripe_subscription_id?: string | null })?.stripe_subscription_id ?? null,
+        },
       });
  
       const { data: txData } = await supabase
