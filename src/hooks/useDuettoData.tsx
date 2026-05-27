@@ -49,6 +49,7 @@ export interface Couple {
     currentPeriodEnd?: string | null;
     stripeCustomerId?: string | null;
     stripeSubscriptionId?: string | null;
+    isLifetime?: boolean;
   };
 }
  
@@ -163,7 +164,8 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
         : 14;
  
       const rawStatus = sub?.status as string | undefined;
-      const isActive = rawStatus === "active";
+      const isLifetime = Boolean((sub as unknown as { is_lifetime?: boolean })?.is_lifetime);
+      const isActive = rawStatus === "active" || isLifetime;
       const isPastDueOrCanceled = rawStatus === "past_due" || rawStatus === "canceled";
       const computedStatus: Couple["subscription"]["status"] =
         isActive ? "active" : !isPastDueOrCanceled && daysLeft > 0 ? "trial" : "expired";
@@ -178,6 +180,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
           currentPeriodEnd: sub?.current_period_end ?? null,
           stripeCustomerId: (sub as unknown as { stripe_customer_id?: string | null })?.stripe_customer_id ?? null,
           stripeSubscriptionId: (sub as unknown as { stripe_subscription_id?: string | null })?.stripe_subscription_id ?? null,
+          isLifetime,
         },
       });
  
