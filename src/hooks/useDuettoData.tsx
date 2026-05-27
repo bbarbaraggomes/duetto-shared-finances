@@ -57,10 +57,10 @@ interface Ctx {
   couple: Couple;
   setCouple: (c: Couple) => void;
   transactions: Transaction[];
-  setTransactions: (t: Transaction[]) => void;
+  setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   addTransaction: (t: Omit<Transaction, "id">) => void;
   goals: Goal[];
-  setGoals: (g: Goal[]) => void;
+  setGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
   addGoal: (g: Omit<Goal, "id" | "current">) => void;
   loading: boolean;
   userId: string | null;
