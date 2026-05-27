@@ -14,6 +14,7 @@ export const useSubscriptionGuard = () => {
     if (loading) return;
 
     const sub = couple.subscription;
+    if (sub.isLifetime) return;
     const isActive = sub.status === "active";
     const isValidTrial = sub.status === "trial" && (sub.daysLeft ?? 0) > 0;
 

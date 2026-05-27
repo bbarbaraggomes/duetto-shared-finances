@@ -14,7 +14,220 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      couples: {
+        Row: {
+          created_at: string
+          id: string
+          invite_code: string | null
+          status: string
+          updated_at: string
+          user1_id: string
+          user2_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invite_code?: string | null
+          status?: string
+          updated_at?: string
+          user1_id: string
+          user2_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invite_code?: string | null
+          status?: string
+          updated_at?: string
+          user1_id?: string
+          user2_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "couples_user1_id_fkey"
+            columns: ["user1_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "couples_user2_id_fkey"
+            columns: ["user2_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          couple_id: string
+          created_at: string
+          current_amount: number
+          deadline: string | null
+          emoji: string | null
+          id: string
+          name: string
+          target_amount: number
+          updated_at: string
+        }
+        Insert: {
+          couple_id: string
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          emoji?: string | null
+          id?: string
+          name: string
+          target_amount: number
+          updated_at?: string
+        }
+        Update: {
+          couple_id?: string
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          emoji?: string | null
+          id?: string
+          name?: string
+          target_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          couple_id: string
+          created_at: string
+          current_period_end: string | null
+          id: string
+          is_lifetime: boolean
+          plan: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_ends_at: string
+          updated_at: string
+        }
+        Insert: {
+          couple_id: string
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          is_lifetime?: boolean
+          plan?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string
+          updated_at?: string
+        }
+        Update: {
+          couple_id?: string
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          is_lifetime?: boolean
+          plan?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: true
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          couple_id: string
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          couple_id: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          couple_id?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
