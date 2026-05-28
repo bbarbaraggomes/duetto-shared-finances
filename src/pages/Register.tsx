@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Mail, Check } from "lucide-react";
@@ -7,6 +7,7 @@ import { DuettoLogo } from "@/components/duetto/DuettoLogo";
 import { AuthInput } from "@/components/duetto/AuthInput";
 import { PrimaryButton } from "@/components/duetto/PrimaryButton";
 import { GoogleSignInButton } from "@/components/duetto/GoogleSignInButton";
+import { getCoupleIdByReferralCode, applyReferralReward, completeReferral } from "@/lib/referral";
 
 type Step = "form" | "invite" | "waiting" | "join";
 
@@ -23,6 +24,15 @@ const Register = () => {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [coupleId, setCoupleId] = useState<string | null>(inviteId);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      localStorage.setItem("duetto_referral_code", ref);
+      setReferralCode(ref);
+    }
+  }, [searchParams]);
 
   // Registo normal (sem convite) ou aceitação de convite via email/password
   const handleRegister = async (e: FormEvent) => {
@@ -98,6 +108,21 @@ const Register = () => {
     if (newCouple) {
       setCoupleId(newCouple.id);
       await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
+
+      // Verifica se há código de referral
+      const savedReferralCode = localStorage.getItem("duetto_referral_code");
+      if (savedReferralCode) {
+        const referrerCoupleId = await getCoupleIdByReferralCode(savedReferralCode);
+        if (referrerCoupleId && referrerCoupleId !== newCouple.id) {
+          // Aplica a recompensa a ambos os casais
+          await applyReferralReward(referrerCoupleId, newCouple.id);
+          // Marca o referral como completado
+          await completeReferral(referrerCoupleId, newCouple.id, savedReferralCode);
+          // Remove o código do localStorage
+          localStorage.removeItem("duetto_referral_code");
+          toast.success("Ganharam 1 mês grátis! 🎁");
+        }
+      }
     }
 
     setSubmitting(false);

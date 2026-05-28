@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus, Sparkles } from "lucide-react";
+import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus, Sparkles, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { supabase } from "@/integrations/supabase/client";
 import { redirectToCheckout, type StripePlan, PLANS } from "@/lib/stripe";
+import { getReferralLink, getReferralCount, createReferralRecord } from "@/lib/referral";
  
 const Avatar = ({ name, accent }: { name: string; accent?: boolean }) => (
   <div
@@ -33,6 +34,11 @@ const Profile = () => {
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
+
+  // Referral system
+  const [referralLink, setReferralLink] = useState<string | null>(null);
+  const [referralCount, setReferralCount] = useState(0);
+  const [referralLinkCopied, setReferralLinkCopied] = useState(false);
  
   useEffect(() => {
     let attempts = 0;
@@ -59,6 +65,10 @@ const Profile = () => {
       if (data) {
         setCoupleId(data.id);
         setInviteCode(data.invite_code || null);
+        setReferralLink(getReferralLink(data.id));
+        createReferralRecord(data.id);
+        const count = await getReferralCount(data.id);
+        setReferralCount(count);
       } else if (attempts < maxAttempts) {
         attempts++;
         setTimeout(fetchCouple, 800);
@@ -84,6 +94,14 @@ const Profile = () => {
     setCodeCopied(true);
     toast.success("Código copiado!");
     setTimeout(() => setCodeCopied(false), 3000);
+  };
+
+  const handleCopyReferralLink = async () => {
+    if (!referralLink) return;
+    await navigator.clipboard.writeText(referralLink);
+    setReferralLinkCopied(true);
+    toast.success("Link copiado!");
+    setTimeout(() => setReferralLinkCopied(false), 3000);
   };
  
   const handleJoinWithCode = async () => {
@@ -404,7 +422,37 @@ const Profile = () => {
           </div>
         )}
       </section>
- 
+
+      <section className="px-6 pt-4">
+        <div
+          className="rounded-3xl p-5 shadow-soft"
+          style={{ background: "#F7F6F3", border: "1.5px solid #C8A96E" }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-accent">
+              <Gift size={20} />
+            </div>
+            <div>
+              <p className="text-[15px] font-medium text-foreground">
+                Convida um casal, ganham um mês grátis os dois 🎁
+              </p>
+              <p className="text-[12px] text-muted-foreground">
+                Partilha o teu link — quando o casal se registar, ambos ganham 1 mês grátis
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleCopyReferralLink}
+            className="w-full rounded-2xl bg-accent py-3 text-[14px] font-medium text-accent-foreground"
+          >
+            {referralLinkCopied ? "Link copiado!" : "Copiar link de convite"}
+          </button>
+          <p className="mt-3 text-center text-[13px] text-muted-foreground">
+            {referralCount} casal{referralCount !== 1 ? "es" : ""} convidado{referralCount !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </section>
+
       <section className="px-6 pt-4 space-y-2 pb-10">
         {!partnerPending && (
           <button

@@ -18,8 +18,9 @@ export const useSubscriptionGuard = () => {
     if (isLifetime) return;
     const isActive = sub.status === "active";
     const isValidTrial = sub.status === "trial" && (sub.daysLeft ?? 0) > 0;
+    const hasFreeMonths = ((sub as any).free_months_remaining ?? 0) > 0;
 
-    if (!isActive && !isValidTrial) {
+    if (!isActive && !isValidTrial && !hasFreeMonths) {
       navigate("/profile?upgrade=1", { replace: true });
     }
   }, [couple.subscription, loading, navigate]);
