@@ -14,11 +14,12 @@ export const useSubscriptionGuard = () => {
     if (loading) return;
 
     const sub = couple.subscription;
-    const isLifetime = sub.is_lifetime === true;
+    const isLifetime = sub.isLifetime === true;
+    if (isLifetime) return;
     const isActive = sub.status === "active";
     const isValidTrial = sub.status === "trial" && (sub.daysLeft ?? 0) > 0;
 
-    if (!isLifetime && !isActive && !isValidTrial) {
+    if (!isActive && !isValidTrial) {
       navigate("/profile?upgrade=1", { replace: true });
     }
   }, [couple.subscription, loading, navigate]);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus } from "lucide-react";
+import { LogOut, Crown, HeartCrack, ChevronRight, Copy, Check, UserPlus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { useDuetto } from "@/hooks/useDuettoData";
@@ -188,7 +188,7 @@ const Profile = () => {
   };
  
   const sub = couple.subscription;
-  const isLifetime = sub.is_lifetime === true;
+  const isLifetime = sub.isLifetime === true;
   const isActive = sub.status === "active";
   const isTrial = sub.status === "trial";
   const isExpired = sub.status === "expired";
@@ -310,21 +310,34 @@ const Profile = () => {
  
       <section className="px-6 pt-4">
         {isLifetime ? (
-          <div className="rounded-3xl p-5 shadow-soft" style={{ background: "linear-gradient(135deg, #C8A96E 0%, #E8D5A3 100%)" }}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-white">
-                <Crown size={20} />
+          <div
+            className="relative overflow-hidden rounded-3xl p-5 text-primary shadow-soft"
+            style={{
+              background:
+                "linear-gradient(135deg, hsl(37 55% 78%) 0%, hsl(37 45% 60%) 55%, hsl(37 55% 72%) 100%)",
+            }}
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full blur-3xl"
+              style={{ background: "hsl(45 80% 90% / 0.6)" }}
+            />
+            <div className="relative flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-accent shadow-gold">
+                <Sparkles size={22} />
               </div>
               <div className="flex-1">
-                <p className="text-[11px] uppercase tracking-wide text-white/80">Subscrição</p>
-                <p className="mt-0.5 text-[15px] font-medium text-white">{subLabel}</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-primary/60">
+                  Subscrição
+                </p>
+                <p className="mt-0.5 font-display text-[20px] leading-tight text-primary">
+                  Acesso Vitalício — Fundador
+                </p>
               </div>
             </div>
-            <div className="mt-4 rounded-2xl bg-white/10 p-4">
-              <p className="text-center text-[14px] font-medium text-white">
-                Obrigado por fazeres parte da história do Duetto
-              </p>
-            </div>
+            <p className="relative mt-4 text-[13px] leading-relaxed text-primary/80">
+              Obrigado por fazeres parte da história do Duetto.
+            </p>
           </div>
         ) : (
           <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">

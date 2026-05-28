@@ -109,12 +109,9 @@ const Register = () => {
     if (!partnerEmail) { toast.error("Indique o email do(a) parceiro(a)."); return; }
     setSubmitting(true);
 
-    if (coupleId) {
-      await supabase
-        .from("couples")
-        .update({ invite_email: partnerEmail })
-        .eq("id", coupleId);
-    }
+    // O código de convite já está gerado automaticamente pelo trigger;
+    // o email do parceiro é apenas informativo nesta fase (mock).
+
 
     setSubmitting(false);
     setStep("waiting");
