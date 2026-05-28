@@ -188,17 +188,20 @@ const Profile = () => {
   };
  
   const sub = couple.subscription;
+  const isLifetime = sub.is_lifetime === true;
   const isActive = sub.status === "active";
   const isTrial = sub.status === "trial";
   const isExpired = sub.status === "expired";
   const planLabel = sub.plan === "yearly" ? "Plano Anual" : "Plano Mensal";
-  const subLabel = isActive
-    ? `Ativo — ${planLabel}`
-    : isTrial
-      ? `Trial — ${sub.daysLeft ?? 0} dias restantes`
-      : isExpired
-        ? "Expirado — Subscreve para continuar"
-        : "Subscreve para continuar";
+  const subLabel = isLifetime
+    ? "Acesso Vitalício — Fundador"
+    : isActive
+      ? `Ativo — ${planLabel}`
+      : isTrial
+        ? `Trial — ${sub.daysLeft ?? 0} dias restantes`
+        : isExpired
+          ? "Expirado — Subscreve para continuar"
+          : "Subscreve para continuar";
 
   const renewalDate = sub.currentPeriodEnd
     ? new Date(sub.currentPeriodEnd).toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" })
@@ -306,68 +309,87 @@ const Profile = () => {
       )}
  
       <section className="px-6 pt-4">
-        <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-              <Crown size={20} />
+        {isLifetime ? (
+          <div className="rounded-3xl p-5 shadow-soft" style={{ background: "linear-gradient(135deg, #C8A96E 0%, #E8D5A3 100%)" }}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-white">
+                <Crown size={20} />
+              </div>
+              <div className="flex-1">
+                <p className="text-[11px] uppercase tracking-wide text-white/80">Subscrição</p>
+                <p className="mt-0.5 text-[15px] font-medium text-white">{subLabel}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-[11px] uppercase tracking-wide text-primary-foreground/60">Subscrição</p>
-              <p className="mt-0.5 text-[15px] font-medium">{subLabel}</p>
-              {isActive && renewalDate && (
-                <p className="mt-1 text-[13px] text-primary-foreground/70">Renova em {renewalDate}</p>
-              )}
-              {isTrial && (
-                <p className="mt-1 text-[13px] text-primary-foreground/80">
-                  Trial de 14 dias · {sub.daysLeft ?? 0} dias restantes
-                </p>
-              )}
+            <div className="mt-4 rounded-2xl bg-white/10 p-4">
+              <p className="text-center text-[14px] font-medium text-white">
+                Obrigado por fazeres parte da história do Duetto
+              </p>
             </div>
           </div>
-          <div className="mt-5 space-y-3">
-            <button
-              onClick={() => handleSubscribe("monthly")}
-              disabled={loadingPlan !== null}
-              className="w-full rounded-2xl border-[1.5px] border-border bg-primary-foreground/5 p-4 text-left transition-all hover:border-accent disabled:opacity-60"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-medium text-primary-foreground">
-                    Subscrever — {PLANS.monthly.price}/mês
-                  </p>
-                  <p className="text-[12px] text-primary-foreground/70">Plano Mensal</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-display text-[20px] text-primary-foreground">{PLANS.monthly.price}</p>
-                  <p className="text-[11px] text-primary-foreground/70">{PLANS.monthly.period}</p>
-                </div>
+        ) : (
+          <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-soft">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+                <Crown size={20} />
               </div>
-            </button>
-            <button
-              onClick={() => handleSubscribe("yearly")}
-              disabled={loadingPlan !== null}
-              className="relative w-full rounded-2xl border-[1.5px] border-accent bg-accent/10 p-4 text-left transition-all disabled:opacity-60"
-            >
-              <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
-                {PLANS.yearly.savings}
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-medium text-primary-foreground">
-                    Subscrever — {PLANS.yearly.price}/ano
+              <div className="flex-1">
+                <p className="text-[11px] uppercase tracking-wide text-primary-foreground/60">Subscrição</p>
+                <p className="mt-0.5 text-[15px] font-medium">{subLabel}</p>
+                {isActive && renewalDate && (
+                  <p className="mt-1 text-[13px] text-primary-foreground/70">Renova em {renewalDate}</p>
+                )}
+                {isTrial && (
+                  <p className="mt-1 text-[13px] text-primary-foreground/80">
+                    Trial de 14 dias · {sub.daysLeft ?? 0} dias restantes
                   </p>
-                  <p className="text-[12px] text-primary-foreground/70">
-                    {PLANS.yearly.label} · {PLANS.yearly.savings}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-display text-[20px] text-primary-foreground">{PLANS.yearly.price}</p>
-                  <p className="text-[11px] text-primary-foreground/70">{PLANS.yearly.period}</p>
-                </div>
+                )}
               </div>
-            </button>
+            </div>
+            <div className="mt-5 space-y-3">
+              <button
+                onClick={() => handleSubscribe("monthly")}
+                disabled={loadingPlan !== null}
+                className="w-full rounded-2xl border-[1.5px] border-border bg-primary-foreground/5 p-4 text-left transition-all hover:border-accent disabled:opacity-60"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[14px] font-medium text-primary-foreground">
+                      Subscrever — {PLANS.monthly.price}/mês
+                    </p>
+                    <p className="text-[12px] text-primary-foreground/70">Plano Mensal</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-[20px] text-primary-foreground">{PLANS.monthly.price}</p>
+                    <p className="text-[11px] text-primary-foreground/70">{PLANS.monthly.period}</p>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleSubscribe("yearly")}
+                disabled={loadingPlan !== null}
+                className="relative w-full rounded-2xl border-[1.5px] border-accent bg-accent/10 p-4 text-left transition-all disabled:opacity-60"
+              >
+                <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-accent-foreground">
+                  {PLANS.yearly.savings}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[14px] font-medium text-primary-foreground">
+                      Subscrever — {PLANS.yearly.price}/ano
+                    </p>
+                    <p className="text-[12px] text-primary-foreground/70">
+                      {PLANS.yearly.label} · {PLANS.yearly.savings}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-[20px] text-primary-foreground">{PLANS.yearly.price}</p>
+                    <p className="text-[11px] text-primary-foreground/70">{PLANS.yearly.period}</p>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </section>
  
       <section className="px-6 pt-4 space-y-2 pb-10">
