@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/duetto/AppShell";
-import { ALL_CATEGORIES, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { ALL_CATEGORIES, DEFAULT_CATEGORIES, ALL_INCOME_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from "@/lib/categories";
 import { useDuetto } from "@/hooks/useDuettoData";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
@@ -8,10 +8,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+type TabType = "expense" | "income";
+
 const CategorySetup = () => {
   const navigate = useNavigate();
   const { coupleId } = useDuetto();
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>("expense");
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
+  const [selectedIncomeIds, setSelectedIncomeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -21,22 +25,28 @@ const CategorySetup = () => {
   const loadCustomCategories = async () => {
     if (!coupleId) return;
     
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("couple_categories" as any)
-      .select("categories")
+      .select("categories, income_categories")
       .eq("couple_id", coupleId)
       .single();
 
     if ((data as any)?.categories) {
-      setSelectedIds((data as any).categories);
+      setSelectedExpenseIds((data as any).categories);
+    }
+    if ((data as any)?.income_categories) {
+      setSelectedIncomeIds((data as any).income_categories);
     }
   };
 
   const toggleCategory = (categoryId: string) => {
+    const selectedIds = activeTab === "expense" ? selectedExpenseIds : selectedIncomeIds;
+    const setSelected = activeTab === "expense" ? setSelectedExpenseIds : setSelectedIncomeIds;
+
     if (selectedIds.includes(categoryId)) {
-      setSelectedIds(prev => prev.filter(id => id !== categoryId));
+      setSelected(prev => prev.filter(id => id !== categoryId));
     } else if (selectedIds.length < 8) {
-      setSelectedIds(prev => [...prev, categoryId]);
+      setSelected(prev => [...prev, categoryId]);
     } else {
       toast.error("Podem escolher no máximo 8 categorias");
     }
@@ -44,7 +54,7 @@ const CategorySetup = () => {
 
   const handleSave = async () => {
     if (!coupleId) return;
-    if (selectedIds.length === 0) {
+    if (selectedExpenseIds.length === 0 && selectedIncomeIds.length === 0) {
       toast.error("Selecionem pelo menos 1 categoria");
       return;
     }
@@ -54,7 +64,8 @@ const CategorySetup = () => {
       .from("couple_categories" as any)
       .upsert({
         couple_id: coupleId,
-        categories: selectedIds,
+        categories: selectedExpenseIds,
+        income_categories: selectedIncomeIds,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "couple_id"
@@ -72,8 +83,15 @@ const CategorySetup = () => {
   };
 
   const handleUseDefault = () => {
-    setSelectedIds(DEFAULT_CATEGORIES.map(c => c.id));
+    if (activeTab === "expense") {
+      setSelectedExpenseIds(DEFAULT_CATEGORIES.map(c => c.id));
+    } else {
+      setSelectedIncomeIds(DEFAULT_INCOME_CATEGORIES.map(c => c.id));
+    }
   };
+
+  const activeCategories = activeTab === "expense" ? ALL_CATEGORIES : ALL_INCOME_CATEGORIES;
+  const selectedIds = activeTab === "expense" ? selectedExpenseIds : selectedIncomeIds;
 
   return (
     <AppShell>
@@ -85,14 +103,46 @@ const CategorySetup = () => {
           <ChevronLeft size={20} />
           <span className="text-[14px]">Voltar</span>
         </button>
-        <h1 className="font-display text-[26px] text-foreground">Escolham as vossas 8 categorias</h1>
+        <h1 className="font-display text-[26px] text-foreground">Escolham as vossas categorias</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">Personalizem o Duetto ao vosso estilo de vida</p>
       </header>
+
+      {/* Tabs */}
+      <div className="px-6 mb-4">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab("expense")}
+            className={cn(
+              "pb-2 text-[15px] font-medium transition-colors relative",
+              activeTab === "expense" ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            Despesas
+            {activeTab === "expense" && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#C8A96E]" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("income")}
+            className={cn(
+              "pb-2 text-[15px] font-medium transition-colors relative",
+              activeTab === "income" ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            Receitas
+            {activeTab === "income" && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#C8A96E]" />
+            )}
+          </button>
+        </div>
+      </div>
 
       <div className="px-6 mb-4">
         <div className="flex items-center justify-between">
           <p className="text-[14px] font-medium text-foreground">
-            {selectedIds.length}/8 selecionadas
+            {activeTab === "expense" 
+              ? `${selectedExpenseIds.length}/8 despesas` 
+              : `${selectedIncomeIds.length}/8 receitas`}
           </p>
           <button
             onClick={handleUseDefault}
@@ -105,7 +155,7 @@ const CategorySetup = () => {
 
       <div className="px-6 pb-[140px]">
         <div className="grid grid-cols-4 gap-3">
-          {ALL_CATEGORIES.map((cat) => {
+          {activeCategories.map((cat) => {
             const isSelected = selectedIds.includes(cat.id);
             return (
               <button
@@ -134,7 +184,7 @@ const CategorySetup = () => {
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-6 py-4">
         <button
           onClick={handleSave}
-          disabled={saving || selectedIds.length === 0}
+          disabled={saving || (selectedExpenseIds.length === 0 && selectedIncomeIds.length === 0)}
           className="w-full rounded-2xl bg-primary py-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {saving ? "A guardar..." : "Guardar"}

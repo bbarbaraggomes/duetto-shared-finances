@@ -67,3 +67,42 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: "viagem", label: "Viagem", emoji: "✈️" },
   { id: "roupa", label: "Roupa", emoji: "👗" },
 ];
+
+export const ALL_INCOME_CATEGORIES: Category[] = [
+  { id: "salario", label: "Salário", emoji: "💰" },
+  { id: "freelance", label: "Freelance", emoji: "💻" },
+  { id: "negocio", label: "Negócio", emoji: "🏪" },
+  { id: "investimentos", label: "Investimentos", emoji: "📈" },
+  { id: "rendas", label: "Rendas", emoji: "🏠" },
+  { id: "dividendos", label: "Dividendos", emoji: "💵" },
+  { id: "bonus", label: "Bónus", emoji: "🎯" },
+  { id: "comissoes", label: "Comissões", emoji: "🤝" },
+  { id: "pensao", label: "Pensão", emoji: "👴" },
+  { id: "subsídio", label: "Subsídio", emoji: "📋" },
+  { id: "reembolso", label: "Reembolso", emoji: "💳" },
+  { id: "venda", label: "Venda", emoji: "🏷️" },
+  { id: "premio", label: "Prémio", emoji: "🏆" },
+  { id: "heranca", label: "Herança", emoji: "🎁" },
+  { id: "poupanca", label: "Poupança", emoji: "💎" },
+  { id: "crypto", label: "Crypto", emoji: "🪙" },
+  { id: "bolsa", label: "Bolsa", emoji: "🎓" },
+  { id: "segunda_fonte", label: "Segunda fonte", emoji: "🔄" },
+  { id: "overtime", label: "Overtime", emoji: "⏰" },
+  { id: "consultoria", label: "Consultoria", emoji: "📊" },
+  { id: "royalties", label: "Royalties", emoji: "🎵" },
+  { id: "aluguer_carro", label: "Aluguer de carro", emoji: "🚗" },
+  { id: "cashback", label: "Cashback", emoji: "💸" },
+  { id: "presente_recebido", label: "Presente recebido", emoji: "🎀" },
+  { id: "outros_receita", label: "Outros", emoji: "📦" },
+];
+
+export const DEFAULT_INCOME_CATEGORIES: Category[] = [
+  { id: "salario", label: "Salário", emoji: "💰" },
+  { id: "freelance", label: "Freelance", emoji: "💻" },
+  { id: "investimentos", label: "Investimentos", emoji: "📈" },
+  { id: "rendas", label: "Rendas", emoji: "🏠" },
+  { id: "bonus", label: "Bónus", emoji: "🎯" },
+  { id: "comissoes", label: "Comissões", emoji: "🤝" },
+  { id: "reembolso", label: "Reembolso", emoji: "💳" },
+  { id: "outros_receita", label: "Outros", emoji: "📦" },
+];

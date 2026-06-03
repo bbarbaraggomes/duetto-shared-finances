@@ -7,7 +7,7 @@ import { PrimaryButton } from "@/components/duetto/PrimaryButton";
 import { AuthInput } from "@/components/duetto/AuthInput";
 import { CATEGORIES, Category, PaidBy, useDuetto } from "@/hooks/useDuettoData";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { ALL_CATEGORIES, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { ALL_CATEGORIES, DEFAULT_CATEGORIES, ALL_INCOME_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from "@/lib/categories";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,8 @@ const AddExpense = () => {
   const [note, setNote] = useState("");
   const [paidBy, setPaidBy] = useState<PaidBy>("me");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [customExpenseCategories, setCustomExpenseCategories] = useState<string[]>([]);
+  const [customIncomeCategories, setCustomIncomeCategories] = useState<string[]>([]);
 
   const amountInputRef = useRef<HTMLInputElement>(null);
   const amountContainerRef = useRef<HTMLDivElement>(null);
@@ -49,12 +50,15 @@ const AddExpense = () => {
     
     const { data } = await supabase
       .from("couple_categories" as any)
-      .select("categories")
+      .select("categories, income_categories")
       .eq("couple_id", coupleId)
       .single();
 
     if ((data as any)?.categories) {
-      setCustomCategories((data as any).categories);
+      setCustomExpenseCategories((data as any).categories);
+    }
+    if ((data as any)?.income_categories) {
+      setCustomIncomeCategories((data as any).income_categories);
     }
   };
 
@@ -70,14 +74,23 @@ const AddExpense = () => {
 
   const isIncome = type === "income";
   const activeCategories = isIncome 
-    ? INCOME_CATEGORIES 
-    : customCategories.length > 0 
-      ? ALL_CATEGORIES.filter(c => customCategories.includes(c.id))
-      : DEFAULT_CATEGORIES;
+    ? (customIncomeCategories.length > 0 
+        ? ALL_INCOME_CATEGORIES.filter(c => customIncomeCategories.includes(c.id))
+        : DEFAULT_INCOME_CATEGORIES)
+    : (customExpenseCategories.length > 0 
+        ? ALL_CATEGORIES.filter(c => customExpenseCategories.includes(c.id))
+        : DEFAULT_CATEGORIES);
 
   const handleTypeChange = (t: "expense" | "income") => {
     setType(t);
-    setCategory(t === "income" ? "trabalho" : "mercado");
+    const newCategories = t === "income" 
+      ? (customIncomeCategories.length > 0 
+          ? ALL_INCOME_CATEGORIES.filter(c => customIncomeCategories.includes(c.id))
+          : DEFAULT_INCOME_CATEGORIES)
+      : (customExpenseCategories.length > 0 
+          ? ALL_CATEGORIES.filter(c => customExpenseCategories.includes(c.id))
+          : DEFAULT_CATEGORIES);
+    setCategory(newCategories[0]?.id || (t === "income" ? "salario" : "casa"));
   };
 
   const pressKey = (k: string) => {
@@ -193,16 +206,14 @@ const AddExpense = () => {
         <div>
           <div className="flex items-center justify-between">
             <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Categoria</p>
-            {!isIncome && (
-              <button
-                type="button"
-                onClick={() => navigate("/category-setup")}
-                className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Settings size={14} />
-                <span>Personalizar</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => navigate("/category-setup")}
+              className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Settings size={14} />
+              <span>Personalizar</span>
+            </button>
           </div>
           <div className="mt-3 grid grid-cols-4 gap-2">
             {activeCategories.map((c) => {
