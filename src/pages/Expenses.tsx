@@ -29,6 +29,8 @@ const Expenses = () => {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [mode, setMode] = useState<"actions" | "edit" | "delete">("actions");
@@ -55,9 +57,12 @@ const Expenses = () => {
   const filteredTransactions = useMemo(() =>
     transactions.filter((t) => {
       const d = new Date(t.date);
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      const matchesMonth = d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      const matchesType = typeFilter === "all" || t.type === typeFilter;
+      const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
+      return matchesMonth && matchesType && matchesCategory;
     }),
-    [transactions, selectedMonth, selectedYear]
+    [transactions, selectedMonth, selectedYear, typeFilter, categoryFilter]
   );
 
   const monthTotal = useMemo(() => {
@@ -124,6 +129,63 @@ const Expenses = () => {
         <h1 className="mt-1 font-display text-[26px] text-foreground">Transações</h1>
       </header>
 
+      {/* Filtro Tipo - Tabs */}
+      <div className="px-6 mb-4">
+        <div className="flex gap-6">
+          {[
+            { id: "all" as const, label: "Tudo" },
+            { id: "expense" as const, label: "Despesas" },
+            { id: "income" as const, label: "Receitas" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setTypeFilter(tab.id)}
+              className={cn(
+                "pb-2 text-[15px] font-medium transition-colors relative",
+                typeFilter === tab.id ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              {tab.label}
+              {typeFilter === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#C8A96E]" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Filtro Categoria - Chips */}
+      <div className="px-6 mb-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className={cn(
+              "flex-shrink-0 px-4 py-2 rounded-full text-[13px] font-medium transition-all",
+              categoryFilter === "all"
+                ? "bg-[#1A1A2E] text-white"
+                : "bg-white border border-border text-foreground"
+            )}
+          >
+            Todas
+          </button>
+          {ALL_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setCategoryFilter(cat.id)}
+              className={cn(
+                "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all",
+                categoryFilter === cat.id
+                  ? "bg-[#1A1A2E] text-white"
+                  : "bg-white border border-border text-foreground"
+              )}
+            >
+              <span>{cat.emoji}</span>
+              <span>{cat.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Navegação de mês */}
       <div className="px-6 mb-4">
         <div className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 shadow-soft">
@@ -143,20 +205,20 @@ const Expenses = () => {
           </button>
         </div>
 
-        {/* Resumo do mês */}
+        {/* Resumo do período filtrado */}
         {filteredTransactions.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-soft">
               <p className="text-[11px] text-muted-foreground">Receitas</p>
-              <p className="mt-0.5 text-[14px] font-semibold text-green-600">{formatEUR(monthTotal.income)}</p>
+              <p className="mt-0.5 text-[14px] font-display font-semibold text-green-600">{formatEUR(monthTotal.income)}</p>
             </div>
             <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-soft">
               <p className="text-[11px] text-muted-foreground">Despesas</p>
-              <p className="mt-0.5 text-[14px] font-semibold text-foreground">{formatEUR(monthTotal.expense)}</p>
+              <p className="mt-0.5 text-[14px] font-display font-semibold text-red-600">{formatEUR(monthTotal.expense)}</p>
             </div>
             <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-soft">
               <p className="text-[11px] text-muted-foreground">Saldo</p>
-              <p className={cn("mt-0.5 text-[14px] font-semibold", monthTotal.balance >= 0 ? "text-green-600" : "text-destructive")}>
+              <p className="mt-0.5 text-[14px] font-display font-semibold text-[#C8A96E]">
                 {formatEUR(monthTotal.balance)}
               </p>
             </div>
