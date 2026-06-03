@@ -64,6 +64,7 @@ interface Ctx {
   addGoal: (g: Omit<Goal, "id" | "current">) => void;
   loading: boolean;
   userId: string | null;
+  coupleId: string | null;
   createCouple: (uid: string) => Promise<void>;
 }
  
@@ -325,7 +326,7 @@ export const DuettoProvider = ({ children }: { children: ReactNode }) => {
   };
  
   const value = useMemo<Ctx>(
-    () => ({ couple, setCouple, transactions, setTransactions, addTransaction, goals, setGoals, addGoal, loading, userId, createCouple }),
+    () => ({ couple, setCouple, transactions, setTransactions, addTransaction, goals, setGoals, addGoal, loading, userId, coupleId, createCouple }),
     [couple, transactions, goals, loading, userId, coupleId]
   );
  

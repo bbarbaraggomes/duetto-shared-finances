@@ -1,12 +1,14 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { PrimaryButton } from "@/components/duetto/PrimaryButton";
 import { AuthInput } from "@/components/duetto/AuthInput";
 import { CATEGORIES, Category, PaidBy, useDuetto } from "@/hooks/useDuettoData";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { ALL_CATEGORIES, DEFAULT_CATEGORIES } from "@/lib/categories";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const INCOME_CATEGORIES = [
@@ -25,7 +27,7 @@ const AddExpense = () => {
   const [searchParams] = useSearchParams();
   const initialType = searchParams.get("type") === "income" ? "income" : "expense";
 
-  const { addTransaction, couple } = useDuetto();
+  const { addTransaction, couple, coupleId } = useDuetto();
   useSubscriptionGuard();
   const [type, setType] = useState<"expense" | "income">(initialType);
   const [amount, setAmount] = useState("0");
@@ -33,9 +35,28 @@ const AddExpense = () => {
   const [note, setNote] = useState("");
   const [paidBy, setPaidBy] = useState<PaidBy>("me");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
 
   const amountInputRef = useRef<HTMLInputElement>(null);
   const amountContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadCustomCategories();
+  }, [coupleId]);
+
+  const loadCustomCategories = async () => {
+    if (!coupleId) return;
+    
+    const { data } = await supabase
+      .from("couple_categories" as any)
+      .select("categories")
+      .eq("couple_id", coupleId)
+      .single();
+
+    if ((data as any)?.categories) {
+      setCustomCategories((data as any).categories);
+    }
+  };
 
   useEffect(() => {
     const onFocusIn = (e: FocusEvent) => {
@@ -48,7 +69,11 @@ const AddExpense = () => {
   }, []);
 
   const isIncome = type === "income";
-  const activeCategories = isIncome ? INCOME_CATEGORIES : CATEGORIES;
+  const activeCategories = isIncome 
+    ? INCOME_CATEGORIES 
+    : customCategories.length > 0 
+      ? ALL_CATEGORIES.filter(c => customCategories.includes(c.id))
+      : DEFAULT_CATEGORIES;
 
   const handleTypeChange = (t: "expense" | "income") => {
     setType(t);
@@ -166,7 +191,19 @@ const AddExpense = () => {
         </div>
 
         <div>
-          <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Categoria</p>
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] uppercase tracking-wide text-muted-foreground">Categoria</p>
+            {!isIncome && (
+              <button
+                type="button"
+                onClick={() => navigate("/category-setup")}
+                className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Settings size={14} />
+                <span>Personalizar</span>
+              </button>
+            )}
+          </div>
           <div className="mt-3 grid grid-cols-4 gap-2">
             {activeCategories.map((c) => {
               const active = category === c.id;
