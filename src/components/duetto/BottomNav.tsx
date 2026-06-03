@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Home, Receipt, Target, User } from "lucide-react";
+import { Home, Receipt, Target, BarChart2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { to: "/dashboard", label: "Início", Icon: Home },
   { to: "/expenses", label: "Transações", Icon: Receipt },
   { to: "/goals", label: "Metas", Icon: Target },
+  { to: "/finances", label: "Finanças", Icon: BarChart2 },
   { to: "/profile", label: "Perfil", Icon: User },
 ];
 

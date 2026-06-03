@@ -14,6 +14,7 @@ import Expenses from "./pages/Expenses.tsx";
 import Goals from "./pages/Goals.tsx";
 import Profile from "./pages/Profile.tsx";
 import CategorySetup from "./pages/CategorySetup.tsx";
+import Finances from "./pages/Finances.tsx";
 import NotFound from "./pages/NotFound.tsx";
  
 const queryClient = new QueryClient();
@@ -151,6 +152,7 @@ const App = () => (
             <Route path="/add-expense" element={<AddExpense />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/goals" element={<Goals />} />
+            <Route path="/finances" element={<Finances />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/category-setup" element={<CategorySetup />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
