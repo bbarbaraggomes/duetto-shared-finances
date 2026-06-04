@@ -53,31 +53,35 @@ const CategorySetup = () => {
   };
 
   const handleSave = async () => {
-    if (!coupleId) return;
+    if (!coupleId) {
+      toast.error("Erro ao guardar categorias. Tenta novamente.");
+      return;
+    }
     if (selectedExpenseIds.length === 0 && selectedIncomeIds.length === 0) {
       toast.error("Selecionem pelo menos 1 categoria");
       return;
     }
 
+    console.log('A guardar categorias:', { coupleId, selectedExpenseIds, selectedIncomeIds });
+
     setSaving(true);
     const { error } = await supabase
-      .from("couple_categories" as any)
+      .from('couple_categories' as any)
       .upsert({
         couple_id: coupleId,
         categories: selectedExpenseIds,
         income_categories: selectedIncomeIds,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: "couple_id"
-      });
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'couple_id' });
 
     if (error) {
-      toast.error("Erro ao guardar categorias");
+      console.error('Erro ao guardar:', error);
+      toast.error("Erro ao guardar categorias. Tenta novamente.");
       setSaving(false);
       return;
     }
 
-    toast.success("Categorias guardadas!");
+    toast.success("Categorias guardadas! ✨");
     setSaving(false);
     navigate(-1);
   };
@@ -153,7 +157,7 @@ const CategorySetup = () => {
         </div>
       </div>
 
-      <div className="px-6 pb-[140px]">
+      <div className="px-6 pb-[100px]">
         <div className="grid grid-cols-4 gap-3">
           {activeCategories.map((cat) => {
             const isSelected = selectedIds.includes(cat.id);
@@ -181,7 +185,7 @@ const CategorySetup = () => {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-6 py-4">
+      <div className="sticky bottom-[80px] left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-6 py-4 z-10">
         <button
           onClick={handleSave}
           disabled={saving || (selectedExpenseIds.length === 0 && selectedIncomeIds.length === 0)}
