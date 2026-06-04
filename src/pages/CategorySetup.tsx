@@ -62,6 +62,7 @@ const CategorySetup = () => {
       return;
     }
 
+    console.log('Supabase URL:', supabase.auth.getSession());
     console.log('A guardar categorias:', { coupleId, selectedExpenseIds, selectedIncomeIds });
 
     setSaving(true);
@@ -75,7 +76,7 @@ const CategorySetup = () => {
       }, { onConflict: 'couple_id' });
 
     if (error) {
-      console.error('Erro ao guardar:', error);
+      console.error('Erro detalhado:', JSON.stringify(error));
       toast.error("Erro ao guardar categorias. Tenta novamente.");
       setSaving(false);
       return;
