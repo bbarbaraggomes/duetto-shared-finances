@@ -5,19 +5,7 @@ import { AppShell } from "@/components/duetto/AppShell";
 import { ProgressBar } from "@/components/duetto/ProgressBar";
 import { CATEGORIES, formatEUR, useDuetto } from "@/hooks/useDuettoData";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
- 
-const INCOME_CATEGORIES = [
-  { id: "trabalho", label: "Trabalho", emoji: "💼" },
-  { id: "renda", label: "Renda", emoji: "🏠" },
-  { id: "freelance", label: "Freelance", emoji: "💻" },
-  { id: "investimento", label: "Investimento", emoji: "📈" },
-  { id: "presente", label: "Presente", emoji: "🎁" },
-  { id: "reembolso", label: "Reembolso", emoji: "↩️" },
-  { id: "bonus", label: "Bónus", emoji: "⭐" },
-  { id: "outro", label: "Outro", emoji: "📦" },
-];
- 
-const ALL_CATEGORIES = [...CATEGORIES, ...INCOME_CATEGORIES];
+import { ALL_CATEGORIES, ALL_INCOME_CATEGORIES } from "@/lib/categories";
  
 const CHART_COLORS = [
   "#C8A96E", "#1A1A2E", "#4A6FA5", "#E8A87C",
@@ -200,7 +188,7 @@ const Dashboard = () => {
             </li>
           )}
           {recent.map((t) => {
-            const cat = ALL_CATEGORIES.find((c) => c.id === t.category) ?? CATEGORIES[CATEGORIES.length - 1];
+            const cat = [...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].find((c) => c.id === t.category) ?? { id: "outros", label: "Outros", emoji: "📦" };
             const who = t.paidBy === "me" ? couple.me.name : couple.partner.name;
             const isIncome = t.type === "income";
             return (

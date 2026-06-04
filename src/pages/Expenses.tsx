@@ -6,19 +6,7 @@ import { Plus, Trash2, X, Pencil, ChevronLeft, ChevronRight } from "lucide-react
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-
-const INCOME_CATEGORIES = [
-  { id: "trabalho", label: "Trabalho", emoji: "💼" },
-  { id: "renda", label: "Renda", emoji: "🏠" },
-  { id: "freelance", label: "Freelance", emoji: "💻" },
-  { id: "investimento", label: "Investimento", emoji: "📈" },
-  { id: "presente", label: "Presente", emoji: "🎁" },
-  { id: "reembolso", label: "Reembolso", emoji: "↩️" },
-  { id: "bonus", label: "Bónus", emoji: "⭐" },
-  { id: "outro", label: "Outro", emoji: "📦" },
-];
-
-const ALL_CATEGORIES = [...CATEGORIES, ...INCOME_CATEGORIES];
+import { ALL_CATEGORIES, ALL_INCOME_CATEGORIES } from "@/lib/categories";
 
 const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -120,7 +108,7 @@ const Expenses = () => {
     setSelected(null);
   };
 
-  const activeCategories = selected?.type === "income" ? INCOME_CATEGORIES : CATEGORIES;
+  const activeCategories = selected?.type === "income" ? ALL_INCOME_CATEGORIES : ALL_CATEGORIES;
 
   return (
     <AppShell>
@@ -168,7 +156,7 @@ const Expenses = () => {
           >
             Todas
           </button>
-          {ALL_CATEGORIES.map((cat) => (
+          {[...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].map((cat) => (
             <button
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
@@ -240,7 +228,7 @@ const Expenses = () => {
             <p className="mb-2 text-[12px] uppercase tracking-wide text-muted-foreground">{day}</p>
             <ul className="space-y-2">
               {list.map((t) => {
-                const cat = ALL_CATEGORIES.find((c) => c.id === t.category) ?? CATEGORIES[CATEGORIES.length - 1];
+                const cat = [...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].find((c) => c.id === t.category) ?? { id: "outros", label: "Outros", emoji: "📦" };
                 const who = t.paidBy === "me" ? couple.me.name : couple.partner.name;
                 const isIncome = t.type === "income";
                 return (
@@ -283,7 +271,7 @@ const Expenses = () => {
           <div className="w-full max-w-[430px] rounded-t-[32px] bg-card px-6 pt-5 pb-10 shadow-card-up">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-display text-[20px] text-foreground">
-                {selected.note || ALL_CATEGORIES.find(c => c.id === selected.category)?.label}
+                {selected.note || [...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].find(c => c.id === selected.category)?.label}
               </h2>
               <button onClick={() => setSelected(null)} className="flex h-9 w-9 items-center justify-center rounded-full bg-background-soft">
                 <X size={16} />
@@ -390,7 +378,7 @@ const Expenses = () => {
           <div className="w-full max-w-[360px] rounded-3xl bg-card p-6 shadow-card-up">
             <h3 className="font-display text-[20px] text-foreground">Apagar transação?</h3>
             <p className="mt-2 text-[14px] text-muted-foreground">
-              Vais apagar <strong>{selected.note || ALL_CATEGORIES.find(c => c.id === selected.category)?.label}</strong> de {formatEUR(selected.amount)}. Esta acção não pode ser desfeita.
+              Vais apagar <strong>{selected.note || [...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].find(c => c.id === selected.category)?.label}</strong> de {formatEUR(selected.amount)}. Esta acção não pode ser desfeita.
             </p>
             <div className="mt-5 flex gap-2">
               <button onClick={() => setMode("actions")} className="flex-1 rounded-2xl bg-background-soft py-3 text-[14px] font-medium text-foreground">Cancelar</button>
