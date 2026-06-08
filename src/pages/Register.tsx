@@ -164,6 +164,28 @@ const Register = () => {
     }
   };
 
+  // Registo via Google — guarda o código de referral no localStorage ANTES do redirect
+  const handleGoogleRegister = async () => {
+    setGoogleLoading(true);
+
+    // Guarda o código de referral se existir
+    if (referralCode) {
+      localStorage.setItem("duetto_referral_code", referralCode);
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      toast.error("Erro ao entrar com Google.");
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <main className="relative min-h-[100dvh] w-full overflow-hidden bg-warm-gradient">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col">
@@ -255,33 +277,45 @@ const Register = () => {
               <h2 className="mt-1 text-center font-display text-[24px] leading-tight text-foreground">
                 Os seus dados
               </h2>
-              <form onSubmit={handleRegister} className="mt-7 space-y-3">
-                <AuthInput
-                  label="O seu nome"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="given-name"
+              <div className="mt-7 space-y-4">
+                <GoogleSignInButton
+                  onClick={handleGoogleRegister}
+                  loading={googleLoading}
+                  disabled={googleLoading}
                 />
-                <AuthInput
-                  label="O seu email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-                <AuthInput
-                  label="Palavra-passe"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                />
-                <div className="pt-4">
-                  <PrimaryButton type="submit" loading={submitting}>
-                    Continuar
-                  </PrimaryButton>
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[13px] text-muted-foreground">ou</span>
+                  <div className="h-px flex-1 bg-border" />
                 </div>
-              </form>
+                <form onSubmit={handleRegister} className="space-y-3">
+                  <AuthInput
+                    label="O seu nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="given-name"
+                  />
+                  <AuthInput
+                    label="O seu email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                  <AuthInput
+                    label="Palavra-passe"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <div className="pt-2">
+                    <PrimaryButton type="submit" loading={submitting}>
+                      Continuar
+                    </PrimaryButton>
+                  </div>
+                </form>
+              </div>
               <Link
                 to="/login"
                 className="mt-6 block w-full text-center text-[14px] text-muted-foreground"
