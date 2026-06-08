@@ -6,25 +6,37 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 serve(async (req) => {
-  const { priceId, coupleId, userEmail, successUrl, cancelUrl } = await req.json()
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: [{ price: priceId, quantity: 1 }],
-    mode: 'subscription',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    client_reference_id: coupleId,
-    customer_email: userEmail,
-  })
+  try {
+    const { priceId, coupleId, userEmail, successUrl, cancelUrl } = await req.json()
 
-  return new Response(JSON.stringify({ url: session.url }), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'content-type',
-    },
-  })
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: coupleId,
+      customer_email: userEmail,
+    })
+
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 })
-

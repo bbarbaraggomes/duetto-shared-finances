@@ -115,11 +115,7 @@ const Register = () => {
         const referrerCoupleId = await getCoupleIdByReferralCode(savedReferralCode);
         if (referrerCoupleId && referrerCoupleId !== newCouple.id) {
           // Aplica a recompensa a ambos os casais
-          await applyReferralReward(referrerCoupleId, newCouple.id);
-          // Marca o referral como completado
-          await completeReferral(referrerCoupleId, newCouple.id, savedReferralCode);
-          // Remove o código do localStorage
-          localStorage.removeItem("duetto_referral_code");
+          await applyReferralReward(referrerCoupleId, newCouple.id, savedReferralCode);
           toast.success("Ganharam 1 mês grátis! 🎁");
         }
       }

@@ -21,59 +21,71 @@ export const getReferralLink = (coupleId: string): string => {
  */
 export const applyReferralReward = async (
   referrerCoupleId: string,
-  referredCoupleId: string
-): Promise<boolean> => {
-  try {
-    // Primeiro, busca os valores atuais
-    const { data: referrerSub, error: referrerFetchError } = await supabase
-      .from("subscriptions")
-      .select("free_months_remaining")
-      .eq("couple_id", referrerCoupleId)
-      .single();
+  referredCoupleId: string,
+  referralCode: string
+) => {
+  // Atualizar status do referral
+  await supabase
+    .from('referrals' as any)
+    .update({
+      status: 'completed',
+      referred_couple_id: referredCoupleId,
+      completed_at: new Date().toISOString()
+    })
+    .eq('referral_code', referralCode);
 
-    if (referrerFetchError) {
-      console.error("Erro ao buscar subscrição do referenciador:", referrerFetchError);
-      return false;
-    }
+  // Dar 1 mês grátis ao casal que convidou
+  const { data: referrerSub } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('couple_id', referrerCoupleId)
+    .single();
 
-    const { data: referredSub, error: referredFetchError } = await supabase
-      .from("subscriptions")
-      .select("free_months_remaining")
-      .eq("couple_id", referredCoupleId)
-      .single();
-
-    if (referredFetchError) {
-      console.error("Erro ao buscar subscrição do referenciado:", referredFetchError);
-      return false;
-    }
-
-    // Atualiza o referenciador
-    const { error: referrerError } = await supabase
-      .from("subscriptions")
-      .update({ free_months_remaining: ((referrerSub as any)?.free_months_remaining || 0) + 1 } as any)
-      .eq("couple_id", referrerCoupleId);
-
-    if (referrerError) {
-      console.error("Erro ao adicionar mês grátis ao referenciador:", referrerError);
-      return false;
-    }
-
-    // Atualiza o referenciado
-    const { error: referredError } = await supabase
-      .from("subscriptions")
-      .update({ free_months_remaining: ((referredSub as any)?.free_months_remaining || 0) + 1 } as any)
-      .eq("couple_id", referredCoupleId);
-
-    if (referredError) {
-      console.error("Erro ao adicionar mês grátis ao referenciado:", referredError);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Erro ao aplicar recompensa de referral:", error);
-    return false;
+  if (referrerSub) {
+    await supabase
+      .from('subscriptions')
+      .update({
+        free_months_remaining: ((referrerSub as any).free_months_remaining || 0) + 1,
+        status: 'active'
+      } as any)
+      .eq('couple_id', referrerCoupleId);
+  } else {
+    await supabase
+      .from('subscriptions')
+      .insert({
+        couple_id: referrerCoupleId,
+        free_months_remaining: 1,
+        status: 'active'
+      } as any);
   }
+
+  // Dar 1 mês grátis ao casal novo
+  const { data: referredSub } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('couple_id', referredCoupleId)
+    .single();
+
+  if (referredSub) {
+    await supabase
+      .from('subscriptions')
+      .update({
+        free_months_remaining: ((referredSub as any).free_months_remaining || 0) + 1,
+        status: 'active'
+      } as any)
+      .eq('couple_id', referredCoupleId);
+  } else {
+    await supabase
+      .from('subscriptions')
+      .insert({
+        couple_id: referredCoupleId,
+        free_months_remaining: 1,
+        status: 'active'
+      } as any);
+  }
+
+  // Limpar o código do localStorage
+  localStorage.removeItem('duetto_referral_code');
 };
 
 /**

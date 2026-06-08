@@ -20,6 +20,7 @@ const Expenses = () => {
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
+  
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [mode, setMode] = useState<"actions" | "edit" | "delete">("actions");
 
