@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DuettoProvider } from "@/hooks/useDuettoData";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { applyReferralReward } from "@/lib/referral";
 import Index from "./pages/Index.tsx";
 import Register from "./pages/Register.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
@@ -74,6 +75,20 @@ const AuthCallback = () => {
       if (newCouple) {
         await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
         console.log("Casal criado:", newCouple.id);
+
+        // Verifica se há código de referral
+        const referralCode = localStorage.getItem('duetto_referral_code');
+        if (referralCode && newCouple.id) {
+          const { data: referral } = await supabase
+            .from('referrals' as any)
+            .select('referrer_couple_id')
+            .eq('referral_code', referralCode)
+            .maybeSingle();
+
+          if (referral) {
+            await applyReferralReward((referral as any).referrer_couple_id, newCouple.id, referralCode);
+          }
+        }
       }
     };
 

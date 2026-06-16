@@ -24,7 +24,6 @@ export const applyReferralReward = async (
   referredCoupleId: string,
   referralCode: string
 ) => {
-  // Atualizar status do referral
   await supabase
     .from('referrals' as any)
     .update({
@@ -34,57 +33,31 @@ export const applyReferralReward = async (
     })
     .eq('referral_code', referralCode);
 
-  // Dar 1 mês grátis ao casal que convidou
-  const { data: referrerSub } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('couple_id', referrerCoupleId)
-    .single();
+  for (const coupleId of [referrerCoupleId, referredCoupleId]) {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('couple_id', coupleId)
+      .maybeSingle();
 
-  if (referrerSub) {
-    await supabase
-      .from('subscriptions')
-      .update({
-        free_months_remaining: ((referrerSub as any).free_months_remaining || 0) + 1,
-        status: 'active'
-      } as any)
-      .eq('couple_id', referrerCoupleId);
-  } else {
-    await supabase
-      .from('subscriptions')
-      .insert({
-        couple_id: referrerCoupleId,
-        free_months_remaining: 1,
-        status: 'active'
-      } as any);
+    if (sub) {
+      await supabase
+        .from('subscriptions')
+        .update({
+          free_months_remaining: ((sub as any).free_months_remaining || 0) + 1,
+          status: 'active'
+        } as any)
+        .eq('couple_id', coupleId);
+    } else {
+      await supabase
+        .from('subscriptions')
+        .insert({
+          couple_id: coupleId,
+          free_months_remaining: 1,
+          status: 'active'
+        } as any);
+    }
   }
-
-  // Dar 1 mês grátis ao casal novo
-  const { data: referredSub } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('couple_id', referredCoupleId)
-    .single();
-
-  if (referredSub) {
-    await supabase
-      .from('subscriptions')
-      .update({
-        free_months_remaining: ((referredSub as any).free_months_remaining || 0) + 1,
-        status: 'active'
-      } as any)
-      .eq('couple_id', referredCoupleId);
-  } else {
-    await supabase
-      .from('subscriptions')
-      .insert({
-        couple_id: referredCoupleId,
-        free_months_remaining: 1,
-        status: 'active'
-      } as any);
-  }
-
-  // Limpar o código do localStorage
   localStorage.removeItem('duetto_referral_code');
 };
 

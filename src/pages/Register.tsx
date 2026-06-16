@@ -110,12 +110,16 @@ const Register = () => {
       await supabase.from("subscriptions").insert({ couple_id: newCouple.id });
 
       // Verifica se há código de referral
-      const savedReferralCode = localStorage.getItem("duetto_referral_code");
-      if (savedReferralCode) {
-        const referrerCoupleId = await getCoupleIdByReferralCode(savedReferralCode);
-        if (referrerCoupleId && referrerCoupleId !== newCouple.id) {
-          // Aplica a recompensa a ambos os casais
-          await applyReferralReward(referrerCoupleId, newCouple.id, savedReferralCode);
+      const referralCode = localStorage.getItem('duetto_referral_code');
+      if (referralCode && newCouple.id) {
+        const { data: referral } = await supabase
+          .from('referrals' as any)
+          .select('referrer_couple_id')
+          .eq('referral_code', referralCode)
+          .maybeSingle();
+
+        if (referral) {
+          await applyReferralReward((referral as any).referrer_couple_id, newCouple.id, referralCode);
           toast.success("Ganharam 1 mês grátis! 🎁");
         }
       }
@@ -165,21 +169,10 @@ const Register = () => {
     setGoogleLoading(true);
 
     // Guarda o código de referral se existir
-    if (referralCode) {
-      localStorage.setItem("duetto_referral_code", referralCode);
-    }
+    const refCode = new URLSearchParams(window.location.search).get('ref');
+    if (refCode) localStorage.setItem('duetto_referral_code', refCode);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      toast.error("Erro ao entrar com Google.");
-      setGoogleLoading(false);
-    }
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/auth/callback' } });
   };
 
   return (
