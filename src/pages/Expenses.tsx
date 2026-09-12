@@ -108,6 +108,15 @@ const Expenses = () => {
 
   const handleDelete = async () => {
     if (!selected) return;
+
+    // Se esta transação veio da confirmação de um custo fixo, remove primeiro
+    // a confirmação (evita erro de foreign key ao apagar a transação a seguir)
+    const { error: confError } = await supabase
+      .from("recurring_confirmations" as any)
+      .delete()
+      .eq("transaction_id", selected.id);
+    if (confError) { toast.error("Erro ao apagar."); return; }
+
     const { error } = await supabase.from("transactions").delete().eq("id", selected.id);
     if (error) { toast.error("Erro ao apagar."); return; }
     setTransactions((prev) => prev.filter((t) => t.id !== selected.id));

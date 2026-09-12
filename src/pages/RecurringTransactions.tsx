@@ -17,6 +17,8 @@ const formatShort = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).rep
 
 const daysInMonth = (year: number, month1based: number) => new Date(year, month1based, 0).getDate();
 
+const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
 interface RecurringItem {
   id: string;
   name: string;
@@ -61,6 +63,8 @@ const RecurringTransactions = () => {
   const [saving, setSaving] = useState(false);
 
   const [toDelete, setToDelete] = useState<RecurringItem | null>(null);
+  const [confirmPromptItem, setConfirmPromptItem] = useState<RecurringItem | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (coupleId) loadData();
@@ -112,6 +116,13 @@ const RecurringTransactions = () => {
 
   const isConfirmed = (id: string) => confirmations.find((c) => c.recurringId === id)?.confirmed ?? false;
 
+  const todayDate = now.getDate();
+
+  const getStatus = (item: RecurringItem): "confirmed" | "late" | "pending" => {
+    if (isConfirmed(item.id)) return "confirmed";
+    return item.dayOfMonth < todayDate ? "late" : "pending";
+  };
+
   const getCategoryMeta = (item: RecurringItem) => {
     const list = item.type === "income" ? ALL_INCOME_CATEGORIES : ALL_CATEGORIES;
     return list.find((c) => c.id === item.category) ?? { id: "outros", label: "Outros", emoji: "📦" };
@@ -122,8 +133,31 @@ const RecurringTransactions = () => {
   const totalNonEssential = activeItems.filter((i) => !i.isEssential).reduce((s, i) => s + i.amount, 0);
   const totalFixed = totalEssential + totalNonEssential;
 
+  const pendingItems = activeItems.filter((item) => !(item.dayOfMonth < todayDate && isConfirmed(item.id)));
+
   const handleConfirmPayment = async (item: RecurringItem) => {
-    if (!coupleId || !userId) return;
+    if (!coupleId || !userId || confirmingId === item.id) return;
+    setConfirmingId(item.id);
+
+    // Verifica se já existe confirmação para este mês antes de criar outra transação
+    const { data: existingConf } = await supabase
+      .from("recurring_confirmations" as any)
+      .select("*")
+      .eq("recurring_id", item.id)
+      .eq("month", currentMonth)
+      .eq("year", currentYear)
+      .maybeSingle();
+
+    if ((existingConf as any)?.confirmed) {
+      const row = existingConf as any;
+      setConfirmations((prev) => [
+        ...prev.filter((c) => c.recurringId !== item.id),
+        { id: row.id, recurringId: row.recurring_id, month: row.month, year: row.year, confirmed: row.confirmed, transactionId: row.transaction_id },
+      ]);
+      toast.error("Este custo fixo já foi confirmado este mês.");
+      setConfirmingId(null);
+      return;
+    }
 
     const day = Math.min(item.dayOfMonth, daysInMonth(currentYear, currentMonth));
     const txDate = new Date(currentYear, currentMonth - 1, day);
@@ -142,6 +176,7 @@ const RecurringTransactions = () => {
     });
     if (txError) {
       toast.error("Erro ao registar transação.");
+      setConfirmingId(null);
       return;
     }
 
@@ -164,6 +199,7 @@ const RecurringTransactions = () => {
 
     if (confError) {
       toast.error("Erro ao confirmar pagamento.");
+      setConfirmingId(null);
       return;
     }
 
@@ -187,6 +223,16 @@ const RecurringTransactions = () => {
     ]);
 
     toast.success(`${item.name} de ${formatShort(item.amount)} registada! ✓`);
+    setConfirmingId(null);
+  };
+
+  const handleConfirmClick = (item: RecurringItem) => {
+    const isPastDue = item.dayOfMonth < todayDate;
+    if (isPastDue) {
+      setConfirmPromptItem(item);
+    } else {
+      handleConfirmPayment(item);
+    }
   };
 
   const handleToggleActive = async (item: RecurringItem) => {
@@ -301,8 +347,17 @@ const RecurringTransactions = () => {
 
   const handleDelete = async () => {
     if (!toDelete) return;
+
+    // Remove primeiro as confirmações associadas, depois o custo fixo, para evitar erro de foreign key
+    const { error: confError } = await supabase
+      .from("recurring_confirmations" as any)
+      .delete()
+      .eq("recurring_id", toDelete.id);
+    if (confError) { toast.error("Erro ao apagar."); return; }
+
     const { error } = await supabase.from("recurring_transactions" as any).delete().eq("id", toDelete.id);
     if (error) { toast.error("Erro ao apagar."); return; }
+
     setItems((prev) => prev.filter((i) => i.id !== toDelete.id));
     setConfirmations((prev) => prev.filter((c) => c.recurringId !== toDelete.id));
     toast.success("Custo fixo apagado.");
@@ -361,12 +416,12 @@ const RecurringTransactions = () => {
         </div>
       )}
 
-      {activeItems.length > 0 && (
+      {pendingItems.length > 0 && (
         <section className="px-6 mb-6">
           <h2 className="font-display text-[18px] text-foreground mb-3">A confirmar este mês</h2>
           <ul className="space-y-2">
-            {activeItems.map((item) => {
-              const confirmed = isConfirmed(item.id);
+            {pendingItems.map((item) => {
+              const status = getStatus(item);
               const meta = getCategoryMeta(item);
               return (
                 <li key={item.id} className="rounded-2xl bg-card px-4 py-3 shadow-soft">
@@ -380,20 +435,27 @@ const RecurringTransactions = () => {
                         Vence dia {item.dayOfMonth} · {formatEUR(item.amount)}
                       </p>
                     </div>
-                    {confirmed ? (
+                    {status === "confirmed" && (
                       <span className="flex items-center gap-1 text-[12px] font-medium text-[#C8A96E]">
                         <Check size={14} /> Confirmado
                       </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-[12px] font-medium text-destructive">
-                        <span className="h-1.5 w-1.5 rounded-full bg-destructive" /> Pendente
+                    )}
+                    {status === "late" && (
+                      <span className="flex items-center gap-1.5 text-[12px] font-semibold text-destructive">
+                        <span className="h-1.5 w-1.5 rounded-full bg-destructive" /> Atrasado
+                      </span>
+                    )}
+                    {status === "pending" && (
+                      <span className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Pendente
                       </span>
                     )}
                   </div>
-                  {!confirmed && (
+                  {status !== "confirmed" && (
                     <button
-                      onClick={() => handleConfirmPayment(item)}
-                      className="press-scale mt-3 w-full rounded-xl bg-primary py-2.5 text-[13px] font-semibold text-primary-foreground"
+                      onClick={() => handleConfirmClick(item)}
+                      disabled={confirmingId === item.id}
+                      className="press-scale mt-3 w-full rounded-xl bg-primary py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60"
                     >
                       Confirmar pagamento
                     </button>
@@ -585,6 +647,36 @@ const RecurringTransactions = () => {
                 </PrimaryButton>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — confirmar pagamento atrasado */}
+      {confirmPromptItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-6 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-[360px] rounded-3xl bg-card p-6 shadow-card-up">
+            <h3 className="font-display text-[20px] text-foreground">Confirmar pagamento?</h3>
+            <p className="mt-2 text-[14px] text-muted-foreground">
+              Este pagamento foi feito no dia {confirmPromptItem.dayOfMonth} de {MONTHS_PT[currentMonth - 1]}?
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setConfirmPromptItem(null)}
+                className="flex-1 rounded-2xl bg-background-soft py-3 text-[14px] font-medium text-foreground"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  const item = confirmPromptItem;
+                  setConfirmPromptItem(null);
+                  handleConfirmPayment(item);
+                }}
+                className="flex-1 rounded-2xl bg-primary py-3 text-[14px] font-semibold text-primary-foreground"
+              >
+                Sim, confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}
