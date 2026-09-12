@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Settings, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/duetto/AppShell";
 import { PrimaryButton } from "@/components/duetto/PrimaryButton";
@@ -10,6 +10,8 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { ALL_CATEGORIES, DEFAULT_CATEGORIES, ALL_INCOME_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from "@/lib/categories";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+const normalizeText = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const INCOME_CATEGORIES = [
   { id: "trabalho", label: "Trabalho", emoji: "💼" },
@@ -37,6 +39,7 @@ const AddExpense = () => {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [customExpenseCategories, setCustomExpenseCategories] = useState<string[]>([]);
   const [customIncomeCategories, setCustomIncomeCategories] = useState<string[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
 
   const amountInputRef = useRef<HTMLInputElement>(null);
   const amountContainerRef = useRef<HTMLDivElement>(null);
@@ -83,15 +86,22 @@ const AddExpense = () => {
 
   const handleTypeChange = (t: "expense" | "income") => {
     setType(t);
-    const newCategories = t === "income" 
-      ? (customIncomeCategories.length > 0 
+    setCategorySearch("");
+    const newCategories = t === "income"
+      ? (customIncomeCategories.length > 0
           ? ALL_INCOME_CATEGORIES.filter(c => customIncomeCategories.includes(c.id))
           : DEFAULT_INCOME_CATEGORIES)
-      : (customExpenseCategories.length > 0 
+      : (customExpenseCategories.length > 0
           ? ALL_CATEGORIES.filter(c => customExpenseCategories.includes(c.id))
           : DEFAULT_CATEGORIES);
     setCategory(newCategories[0]?.id || (t === "income" ? "salario" : "casa"));
   };
+
+  const categorySearchResults = isIncome ? ALL_INCOME_CATEGORIES : ALL_CATEGORIES;
+  const query = normalizeText(categorySearch.trim());
+  const displayedCategories = query
+    ? categorySearchResults.filter((c) => normalizeText(c.label).includes(query))
+    : activeCategories;
 
   const pressKey = (k: string) => {
     setAmount((prev) => {
@@ -215,8 +225,18 @@ const AddExpense = () => {
               <span>Personalizar</span>
             </button>
           </div>
+          <div className="relative mt-3">
+            <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#C8A96E]" />
+            <input
+              type="text"
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              placeholder="Pesquisar categoria..."
+              className="h-11 w-full rounded-full border border-border bg-[#F7F6F3] pl-10 pr-4 text-[14px] text-[#1A1A2E] outline-none transition-colors focus:border-[#C8A96E] placeholder:text-muted-foreground"
+            />
+          </div>
           <div className="mt-3 grid grid-cols-4 gap-2">
-            {activeCategories.map((c) => {
+            {displayedCategories.map((c) => {
               const active = category === c.id;
               return (
                 <button
@@ -235,6 +255,11 @@ const AddExpense = () => {
                 </button>
               );
             })}
+            {displayedCategories.length === 0 && (
+              <p className="col-span-4 py-4 text-center text-[13px] text-muted-foreground">
+                Nenhuma categoria encontrada
+              </p>
+            )}
           </div>
         </div>
 
