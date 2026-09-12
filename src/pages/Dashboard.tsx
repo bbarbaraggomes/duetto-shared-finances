@@ -6,6 +6,7 @@ import { ProgressBar } from "@/components/duetto/ProgressBar";
 import { CATEGORIES, formatEUR, useDuetto } from "@/hooks/useDuettoData";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { ALL_CATEGORIES, ALL_INCOME_CATEGORIES } from "@/lib/categories";
+import { supabase } from "@/integrations/supabase/client";
  
 const CHART_COLORS = [
   "#C8A96E", "#1A1A2E", "#4A6FA5", "#E8A87C",
@@ -14,10 +15,46 @@ const CHART_COLORS = [
  
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { couple, transactions, goals } = useDuetto();
+  const { couple, transactions, goals, coupleId } = useDuetto();
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [fixedTotal, setFixedTotal] = useState(0);
+  const [fixedPending, setFixedPending] = useState(0);
 
   useSubscriptionGuard();
+
+  useEffect(() => {
+    if (!coupleId) return;
+    (async () => {
+      const { data: recData } = await supabase
+        .from("recurring_transactions" as any)
+        .select("id, amount")
+        .eq("couple_id", coupleId)
+        .eq("is_active", true);
+
+      const activeItems = (recData as any[]) || [];
+      setFixedTotal(activeItems.reduce((s, r) => s + Number(r.amount), 0));
+
+      if (activeItems.length === 0) {
+        setFixedPending(0);
+        return;
+      }
+
+      const today = new Date();
+      const month = today.getMonth() + 1;
+      const year = today.getFullYear();
+      const { data: confData } = await supabase
+        .from("recurring_confirmations" as any)
+        .select("recurring_id, confirmed")
+        .eq("couple_id", coupleId)
+        .eq("month", month)
+        .eq("year", year);
+
+      const confirmedIds = new Set(
+        ((confData as any[]) || []).filter((c) => c.confirmed).map((c) => c.recurring_id)
+      );
+      setFixedPending(activeItems.filter((r) => !confirmedIds.has(r.id)).length);
+    })();
+  }, [coupleId]);
  
   // Quando vem do AuthCallback com ?reload=1, faz reload completo da página
   // para garantir que o DuettoProvider carrega os dados frescos (casal ligado)
@@ -149,6 +186,30 @@ const Dashboard = () => {
         </section>
       )}
  
+      <section className="px-6 pt-6">
+        <button
+          onClick={() => navigate("/recurring")}
+          className="block w-full rounded-3xl border border-border bg-card p-5 text-left shadow-soft transition-shadow hover:shadow-gold"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Custos Fixos</p>
+              <p className="mt-1 font-display text-[22px] text-foreground">
+                {formatEUR(fixedTotal)}
+                <span className="text-[13px] font-normal text-muted-foreground">/mês</span>
+              </p>
+            </div>
+            <span className="text-3xl">📌</span>
+          </div>
+          {fixedPending > 0 && (
+            <div className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-destructive">
+              <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+              {fixedPending} {fixedPending === 1 ? "pendente" : "pendentes"} de confirmação este mês
+            </div>
+          )}
+        </button>
+      </section>
+
       {primaryGoal && (
         <section className="px-6 pt-6">
           <Link

@@ -16,6 +16,7 @@ import Goals from "./pages/Goals.tsx";
 import Profile from "./pages/Profile.tsx";
 import CategorySetup from "./pages/CategorySetup.tsx";
 import Finances from "./pages/Finances.tsx";
+import RecurringTransactions from "./pages/RecurringTransactions.tsx";
 import NotFound from "./pages/NotFound.tsx";
  
 const queryClient = new QueryClient();
@@ -170,6 +171,7 @@ const App = () => (
             <Route path="/finances" element={<Finances />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/category-setup" element={<CategorySetup />} />
+            <Route path="/recurring" element={<RecurringTransactions />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/~oauth/initiate" element={<AuthCallback />} />
             <Route path="*" element={<NotFound />} />
