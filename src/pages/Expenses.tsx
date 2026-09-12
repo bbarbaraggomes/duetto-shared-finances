@@ -2,13 +2,15 @@ import { useState, useMemo } from "react";
 import { AppShell } from "@/components/duetto/AppShell";
 import { CATEGORIES, Category, PaidBy, Transaction, formatEUR, useDuetto } from "@/hooks/useDuettoData";
 import { useNavigate } from "react-router-dom";
-import { Plus, Trash2, X, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, X, Pencil, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { ALL_CATEGORIES, ALL_INCOME_CATEGORIES } from "@/lib/categories";
 
 const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const Expenses = () => {
   const navigate = useNavigate();
@@ -18,7 +20,7 @@ const Expenses = () => {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [categorySearch, setCategorySearch] = useState("");
 
   
   const [selected, setSelected] = useState<Transaction | null>(null);
@@ -43,16 +45,20 @@ const Expenses = () => {
 
   const isCurrentMonth = selectedMonth === now.getMonth() && selectedYear === now.getFullYear();
 
-  const filteredTransactions = useMemo(() =>
-    transactions.filter((t) => {
+  const filteredTransactions = useMemo(() => {
+    const query = normalize(categorySearch.trim());
+    return transactions.filter((t) => {
       const d = new Date(t.date);
       const matchesMonth = d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
       const matchesType = typeFilter === "all" || t.type === typeFilter;
-      const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
+      let matchesCategory = true;
+      if (query) {
+        const cat = [...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].find((c) => c.id === t.category);
+        matchesCategory = normalize(cat?.label ?? t.category).includes(query);
+      }
       return matchesMonth && matchesType && matchesCategory;
-    }),
-    [transactions, selectedMonth, selectedYear, typeFilter, categoryFilter]
-  );
+    });
+  }, [transactions, selectedMonth, selectedYear, typeFilter, categorySearch]);
 
   const monthTotal = useMemo(() => {
     const income = filteredTransactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
@@ -143,35 +149,30 @@ const Expenses = () => {
         </div>
       </div>
 
-      {/* Filtro Categoria - Chips */}
+      {/* Filtro Categoria - Pesquisa inteligente */}
       <div className="px-6 mb-4">
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setCategoryFilter("all")}
+            onClick={() => setCategorySearch("")}
             className={cn(
-              "flex-shrink-0 px-4 py-2 rounded-full text-[13px] font-medium transition-all",
-              categoryFilter === "all"
+              "flex-shrink-0 px-4 py-2.5 rounded-full text-[13px] font-medium transition-all",
+              categorySearch.trim() === ""
                 ? "bg-[#1A1A2E] text-white"
-                : "bg-white border border-border text-foreground"
+                : "bg-[#F7F6F3] border border-border text-[#1A1A2E]"
             )}
           >
             Todas
           </button>
-          {[...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCategoryFilter(cat.id)}
-              className={cn(
-                "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all",
-                categoryFilter === cat.id
-                  ? "bg-[#1A1A2E] text-white"
-                  : "bg-white border border-border text-foreground"
-              )}
-            >
-              <span>{cat.emoji}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
+          <div className="relative flex-1">
+            <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#C8A96E]" />
+            <input
+              type="text"
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              placeholder="Pesquisar categoria..."
+              className="h-11 w-full rounded-full border border-border bg-[#F7F6F3] pl-10 pr-4 text-[14px] text-[#1A1A2E] outline-none transition-colors focus:border-[#C8A96E] placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
       </div>
 
@@ -218,9 +219,11 @@ const Expenses = () => {
       <div className="px-6 pb-[120px]">
         {Object.keys(grouped).length === 0 && (
           <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-border bg-card/60 px-6 py-12 text-center">
-            <span className="text-5xl">💸</span>
+            <span className="text-5xl">{categorySearch.trim() ? "🔍" : "💸"}</span>
             <p className="mt-4 text-[15px] text-muted-foreground">
-              Sem transações em {MONTHS_PT[selectedMonth]}.
+              {categorySearch.trim()
+                ? "Nenhuma transação encontrada para esta categoria"
+                : `Sem transações em ${MONTHS_PT[selectedMonth]}.`}
             </p>
           </div>
         )}
