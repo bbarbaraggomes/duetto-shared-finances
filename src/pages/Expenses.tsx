@@ -66,6 +66,22 @@ const Expenses = () => {
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
 
+  // Saldo corrente calculado sobre TODAS as transações do mês (ignora filtros de tipo/categoria)
+  const runningBalances = useMemo(() => {
+    const monthTransactions = transactions.filter((t) => {
+      const d = new Date(t.date);
+      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    });
+    const sorted = [...monthTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const map = new Map<string, number>();
+    let balance = 0;
+    for (const t of sorted) {
+      balance += t.type === "income" ? t.amount : -t.amount;
+      map.set(t.id, balance);
+    }
+    return map;
+  }, [transactions, selectedMonth, selectedYear]);
+
   const grouped = filteredTransactions.reduce<Record<string, typeof transactions>>((acc, t) => {
     const d = new Date(t.date).toLocaleDateString("pt-PT", { day: "2-digit", month: "long" });
     (acc[d] ||= []).push(t);
@@ -244,6 +260,7 @@ const Expenses = () => {
                 const cat = [...ALL_CATEGORIES, ...ALL_INCOME_CATEGORIES].find((c) => c.id === t.category) ?? { id: "outros", label: "Outros", emoji: "📦" };
                 const who = t.paidBy === "me" ? couple.me.name : couple.partner.name;
                 const isIncome = t.type === "income";
+                const runningBalance = runningBalances.get(t.id);
                 return (
                   <li
                     key={t.id}
@@ -259,9 +276,16 @@ const Expenses = () => {
                         {cat.label} · {isIncome ? "Recebido por" : "Pago por"} {who}
                       </p>
                     </div>
-                    <p className={`text-[15px] font-semibold ${isIncome ? "text-green-600" : "text-foreground"}`}>
-                      {isIncome ? "+" : "−"}{formatEUR(t.amount)}
-                    </p>
+                    <div className="flex flex-col items-end">
+                      <p className={`text-[15px] font-semibold ${isIncome ? "text-green-600" : "text-foreground"}`}>
+                        {isIncome ? "+" : "−"}{formatEUR(t.amount)}
+                      </p>
+                      {runningBalance !== undefined && (
+                        <p className={cn("mt-0.5 text-xs", runningBalance < 0 ? "text-[#EF4444]" : "text-[#9CA3AF]")}>
+                          Saldo: {formatEUR(runningBalance)}
+                        </p>
+                      )}
+                    </div>
                   </li>
                 );
               })}
