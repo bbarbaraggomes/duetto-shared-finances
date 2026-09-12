@@ -75,14 +75,15 @@ const Expenses = () => {
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     });
 
-    // Ordena do mais antigo para o mais recente; em caso de empate na data,
-    // mantém uma ordem estável e determinística (índice original) em vez de depender
-    // apenas da estabilidade do sort.
+    // Ordena do mais antigo para o mais recente. `transactions` vem ordenado do mais
+    // recente para o mais antigo (índice 0 = mais recente), por isso, em caso de
+    // empate na data, a transação com índice MENOR é a mais recente e deve ficar
+    // depois na ordem cronológica (por isso o desempate é invertido: b.index - a.index).
     const chronological = monthTransactions
       .map((t, index) => ({ t, index }))
       .sort((a, b) => {
         const diff = new Date(a.t.date).getTime() - new Date(b.t.date).getTime();
-        return diff !== 0 ? diff : a.index - b.index;
+        return diff !== 0 ? diff : b.index - a.index;
       })
       .map(({ t }) => t);
 
