@@ -66,18 +66,31 @@ const Expenses = () => {
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
 
-  // Saldo corrente calculado sobre TODAS as transações do mês (ignora filtros de tipo/categoria)
+  // Saldo corrente calculado sobre TODAS as transações do mês (ignora filtros de tipo/categoria).
+  // A lista continua a ser apresentada da mais recente para a mais antiga — só este cálculo
+  // percorre as transações da mais antiga para a mais recente para acumular o saldo.
   const runningBalances = useMemo(() => {
     const monthTransactions = transactions.filter((t) => {
       const d = new Date(t.date);
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     });
-    const sorted = [...monthTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Ordena do mais antigo para o mais recente; em caso de empate na data,
+    // mantém uma ordem estável e determinística (índice original) em vez de depender
+    // apenas da estabilidade do sort.
+    const chronological = monthTransactions
+      .map((t, index) => ({ t, index }))
+      .sort((a, b) => {
+        const diff = new Date(a.t.date).getTime() - new Date(b.t.date).getTime();
+        return diff !== 0 ? diff : a.index - b.index;
+      })
+      .map(({ t }) => t);
+
     const map = new Map<string, number>();
-    let balance = 0;
-    for (const t of sorted) {
+    let balance = 0; // o saldo começa sempre em 0 no início do mês selecionado
+    for (const t of chronological) {
       balance += t.type === "income" ? t.amount : -t.amount;
-      map.set(t.id, balance);
+      map.set(t.id, balance); // saldo acumulado até esta transação, inclusive
     }
     return map;
   }, [transactions, selectedMonth, selectedYear]);
